@@ -109,6 +109,14 @@ TweenService:Create(MainFrame, tweenInfo, {
         btn.Parent = parent
 
         btn.MouseButton1Click:Connect(callback)
+        btn.MouseEnter:Connect(function()
+    TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(90, 90, 90)}):Play()
+end)
+
+btn.MouseLeave:Connect(function()
+    TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(70, 70, 70)}):Play()
+end)
+
     end
 
     function Zynox:CreateToggle(name, defaultState, parent, callback)
