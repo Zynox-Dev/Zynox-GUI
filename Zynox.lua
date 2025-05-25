@@ -185,13 +185,14 @@ function Zynox:ShowWelcome(titleText, descriptionText, callback)
     ScreenGui.Parent = PlayerGui
 
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 300, 0, 150)
-    Frame.Position = UDim2.new(0.5, -150, 0.5, -75)
-    Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    Frame.BorderSizePixel = 0
-    Frame.AnchorPoint = Vector2.new(0.5, 0.5)
-    Frame.BackgroundTransparency = 1
-    Frame.Parent = ScreenGui
+Frame.Size = UDim2.new(0, 300, 0, 150)
+Frame.Position = UDim2.new(0.5, 0, 0.5, 0) -- Centered properly
+Frame.AnchorPoint = Vector2.new(0.5, 0.5)  -- Anchor to center
+Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Frame.BorderSizePixel = 0
+Frame.BackgroundTransparency = 1
+Frame.Parent = ScreenGui
+
 
     local UICorner = Instance.new("UICorner", Frame)
     UICorner.CornerRadius = UDim.new(0, 10)
