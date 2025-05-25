@@ -4,6 +4,7 @@ local Zynox = {}
 -- Services
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
@@ -164,6 +165,84 @@ function Zynox:CreateWindow(options)
     end)
 
     return Zynox
+end
+
+-- ShowWelcome Function
+function Zynox:ShowWelcome(titleText, descriptionText)
+    local oldWelcome = PlayerGui:FindFirstChild("ZynoxWelcome")
+    if oldWelcome then
+        oldWelcome:Destroy()
+    end
+
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "ZynoxWelcome"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = PlayerGui
+
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(0, 300, 0, 150)
+    Frame.Position = UDim2.new(0.5, -150, 0.5, -75)
+    Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    Frame.BorderSizePixel = 0
+    Frame.AnchorPoint = Vector2.new(0.5, 0.5)
+    Frame.BackgroundTransparency = 1
+    Frame.Parent = ScreenGui
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 10)
+    UICorner.Parent = Frame
+
+    local MainText = Instance.new("TextLabel")
+    MainText.Size = UDim2.new(1, -20, 0, 40)
+    MainText.Position = UDim2.new(0, 10, 0, 10)
+    MainText.BackgroundTransparency = 1
+    MainText.Text = titleText or "Welcome!"
+    MainText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    MainText.TextSize = 24
+    MainText.Font = Enum.Font.GothamBold
+    MainText.TextWrapped = true
+    MainText.TextTransparency = 1
+    MainText.Parent = Frame
+
+    local DescText = Instance.new("TextLabel")
+    DescText.Size = UDim2.new(1, -20, 0, 30)
+    DescText.Position = UDim2.new(0, 10, 0, 60)
+    DescText.BackgroundTransparency = 1
+    DescText.Text = descriptionText or "Enjoy the features!"
+    DescText.TextColor3 = Color3.fromRGB(180, 180, 180)
+    DescText.TextSize = 18
+    DescText.Font = Enum.Font.Gotham
+    DescText.TextWrapped = true
+    DescText.TextTransparency = 1
+    DescText.Parent = Frame
+
+    local Credit = Instance.new("TextLabel")
+    Credit.Size = UDim2.new(1, -20, 0, 20)
+    Credit.Position = UDim2.new(0, 10, 1, -30)
+    Credit.BackgroundTransparency = 1
+    Credit.Text = "Powered by Zynox UI"
+    Credit.TextColor3 = Color3.fromRGB(100, 100, 100)
+    Credit.TextSize = 14
+    Credit.Font = Enum.Font.Gotham
+    Credit.TextTransparency = 1
+    Credit.Parent = Frame
+
+    local tweenInfo = TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    TweenService:Create(Frame, tweenInfo, {BackgroundTransparency = 0.2}):Play()
+    TweenService:Create(MainText, tweenInfo, {TextTransparency = 0}):Play()
+    TweenService:Create(DescText, tweenInfo, {TextTransparency = 0}):Play()
+    TweenService:Create(Credit, tweenInfo, {TextTransparency = 0}):Play()
+
+    task.delay(4, function()
+        local tweenOutInfo = TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+        TweenService:Create(Frame, tweenOutInfo, {BackgroundTransparency = 1}):Play()
+        TweenService:Create(MainText, tweenOutInfo, {TextTransparency = 1}):Play()
+        TweenService:Create(DescText, tweenOutInfo, {TextTransparency = 1}):Play()
+        TweenService:Create(Credit, tweenOutInfo, {TextTransparency = 1}):Play()
+        task.delay(1, function()
+            ScreenGui:Destroy()
+        end)
+    end)
 end
 
 return Zynox
