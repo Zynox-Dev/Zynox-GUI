@@ -24,12 +24,22 @@ function Zynox:CreateWindow(options)
     ScreenGui.Parent = PlayerGui
 
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 800, 0, 400)
-    MainFrame.Position = UDim2.new(0.5, -400, 0.5, -200)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    MainFrame.BorderSizePixel = 0
-    MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-    MainFrame.Parent = ScreenGui
+MainFrame.Size = UDim2.new(0, 600, 0, 300)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.BackgroundTransparency = 1
+MainFrame.Parent = ScreenGui
+
+-- Animate MainFrame In
+local tweenInfo = TweenInfo.new(0.7, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+TweenService:Create(MainFrame, tweenInfo, {
+    Size = UDim2.new(0, 800, 0, 400),
+    Position = UDim2.new(0.5, -400, 0.5, -200),
+    BackgroundTransparency = 0.2
+}):Play()
+
 
     local TopFrame = Instance.new("Frame")
     TopFrame.Size = UDim2.new(1, 0, 0, 30)
