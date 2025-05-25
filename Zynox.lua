@@ -1,4 +1,4 @@
--- Library Table
+-- Zynox GUI Framework
 local Zynox = {}
 
 -- Services
@@ -7,23 +7,25 @@ local UIS = game:GetService("UserInputService")
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
--- Destroy previous GUI
-local oldGUI = PlayerGui:FindFirstChild("ZynoxGUI")
-if oldGUI then
-    oldGUI:Destroy()
-end
+-- Core CreateWindow function
+function Zynox:CreateWindow(options)
+    options = options or {}
+    local TitleText = options.Title or "Zynox"
 
--- Create Window
-function Zynox:CreateWindow()
-    local Window = {}
+    -- Destroy existing GUI
+    local oldGUI = PlayerGui:FindFirstChild("ZynoxGUI")
+    if oldGUI then
+        oldGUI:Destroy()
+    end
 
+    -- ScreenGui
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "ZynoxGUI"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.Parent = PlayerGui
 
+    -- Main Frame
     local MainFrame = Instance.new("Frame")
-    MainFrame.Name = "MainFrame"
     MainFrame.Size = UDim2.new(0, 800, 0, 400)
     MainFrame.Position = UDim2.new(0.5, -400, 0.5, -200)
     MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
@@ -31,6 +33,7 @@ function Zynox:CreateWindow()
     MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
     MainFrame.Parent = ScreenGui
 
+    -- Top Bar
     local TopFrame = Instance.new("Frame")
     TopFrame.Size = UDim2.new(1, 0, 0, 30)
     TopFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
@@ -40,12 +43,13 @@ function Zynox:CreateWindow()
     local Title = Instance.new("TextLabel")
     Title.Size = UDim2.new(1, 0, 1, 0)
     Title.BackgroundTransparency = 1
-    Title.Text = "Zynox"
+    Title.Text = TitleText
     Title.TextColor3 = Color3.fromRGB(255, 255, 255)
     Title.Font = Enum.Font.GothamBold
     Title.TextSize = 18
     Title.Parent = TopFrame
 
+    -- Sidebar
     local SideFrame = Instance.new("Frame")
     SideFrame.Size = UDim2.new(0, 150, 1, -30)
     SideFrame.Position = UDim2.new(0, 0, 0, 30)
@@ -53,6 +57,7 @@ function Zynox:CreateWindow()
     SideFrame.BorderSizePixel = 0
     SideFrame.Parent = MainFrame
 
+    -- Content Area
     local ContentFrame = Instance.new("Frame")
     ContentFrame.Size = UDim2.new(1, -150, 1, -30)
     ContentFrame.Position = UDim2.new(0, 150, 0, 30)
@@ -69,30 +74,49 @@ function Zynox:CreateWindow()
         end
     end
 
-    -- Create Sidebar Button
-    function Window:CreateSidebar(name, callback)
-        local y = #SideFrame:GetChildren() * 50
+    -- Sidebar Button
+    function Zynox:CreateSidebar(name, callback)
+        local positionY = #SideFrame:GetChildren() * 45
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(1, -20, 0, 40)
-        btn.Position = UDim2.new(0, 10, 0, y)
+        btn.Position = UDim2.new(0, 10, 0, positionY)
         btn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
         btn.Text = name
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
         btn.Font = Enum.Font.Gotham
         btn.TextSize = 16
         btn.Parent = SideFrame
+
         btn.MouseButton1Click:Connect(function()
             clearContent()
             callback(ContentFrame)
         end)
     end
 
-    -- Create Toggle
-    function Window:CreateToggle(name, defaultState, parent, callback)
+    -- Button
+    function Zynox:CreateButton(name, parent, callback)
+        local y = #parent:GetChildren() * 45
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 200, 0, 40)
+        btn.Position = UDim2.new(0, 20, 0, y)
+        btn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+        btn.Text = name
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Font = Enum.Font.Gotham
+        btn.TextSize = 16
+        btn.Parent = parent
+
+        btn.MouseButton1Click:Connect(callback)
+    end
+
+    -- Toggle
+    function Zynox:CreateToggle(name, defaultState, parent, callback)
         local toggled = defaultState or false
+        local y = #parent:GetChildren() * 45
+
         local Toggle = Instance.new("TextButton")
         Toggle.Size = UDim2.new(0, 200, 0, 40)
-        Toggle.Position = UDim2.new(0, 20, 0, #parent:GetChildren() * 50)
+        Toggle.Position = UDim2.new(0, 20, 0, y)
         Toggle.BackgroundColor3 = toggled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(170, 0, 0)
         Toggle.Text = name .. ": " .. (toggled and "ON" or "OFF")
         Toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -108,30 +132,16 @@ function Zynox:CreateWindow()
         end)
     end
 
-    -- Create Button
-    function Window:CreateButton(name, parent, callback)
-        local Button = Instance.new("TextButton")
-        Button.Size = UDim2.new(0, 200, 0, 40)
-        Button.Position = UDim2.new(0, 20, 0, #parent:GetChildren() * 50)
-        Button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-        Button.Text = name
-        Button.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Button.Font = Enum.Font.Gotham
-        Button.TextSize = 16
-        Button.Parent = parent
-
-        Button.MouseButton1Click:Connect(function()
-            if callback then callback() end
-        end)
-    end
-
     -- Draggable
-    local dragging, dragInput, dragStart, startPos
+    local dragging = false
+    local dragInput, dragStart, startPos
+
     TopFrame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             dragStart = input.Position
             startPos = MainFrame.Position
+
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -139,11 +149,13 @@ function Zynox:CreateWindow()
             end)
         end
     end)
+
     TopFrame.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement then
             dragInput = input
         end
     end)
+
     UIS.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
@@ -151,7 +163,7 @@ function Zynox:CreateWindow()
         end
     end)
 
-    return Window
+    return Zynox
 end
 
 return Zynox
