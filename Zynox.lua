@@ -13,19 +13,16 @@ function Zynox:CreateWindow(options)
     options = options or {}
     local TitleText = options.Title or "Zynox"
 
-    -- Destroy existing GUI
     local oldGUI = PlayerGui:FindFirstChild("ZynoxGUI")
     if oldGUI then
         oldGUI:Destroy()
     end
 
-    -- ScreenGui
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "ZynoxGUI"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.Parent = PlayerGui
 
-    -- Main Frame
     local MainFrame = Instance.new("Frame")
     MainFrame.Size = UDim2.new(0, 800, 0, 400)
     MainFrame.Position = UDim2.new(0.5, -400, 0.5, -200)
@@ -34,7 +31,6 @@ function Zynox:CreateWindow(options)
     MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
     MainFrame.Parent = ScreenGui
 
-    -- Top Bar
     local TopFrame = Instance.new("Frame")
     TopFrame.Size = UDim2.new(1, 0, 0, 30)
     TopFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
@@ -50,7 +46,6 @@ function Zynox:CreateWindow(options)
     Title.TextSize = 18
     Title.Parent = TopFrame
 
-    -- Sidebar
     local SideFrame = Instance.new("Frame")
     SideFrame.Size = UDim2.new(0, 150, 1, -30)
     SideFrame.Position = UDim2.new(0, 0, 0, 30)
@@ -58,7 +53,6 @@ function Zynox:CreateWindow(options)
     SideFrame.BorderSizePixel = 0
     SideFrame.Parent = MainFrame
 
-    -- Content Area
     local ContentFrame = Instance.new("Frame")
     ContentFrame.Size = UDim2.new(1, -150, 1, -30)
     ContentFrame.Position = UDim2.new(0, 150, 0, 30)
@@ -66,7 +60,6 @@ function Zynox:CreateWindow(options)
     ContentFrame.BorderSizePixel = 0
     ContentFrame.Parent = MainFrame
 
-    -- Clear Content
     local function clearContent()
         for _, child in ipairs(ContentFrame:GetChildren()) do
             if child:IsA("GuiObject") then
@@ -75,7 +68,6 @@ function Zynox:CreateWindow(options)
         end
     end
 
-    -- Sidebar Button
     function Zynox:CreateSidebar(name, callback)
         local positionY = #SideFrame:GetChildren() * 45
         local btn = Instance.new("TextButton")
@@ -94,7 +86,6 @@ function Zynox:CreateWindow(options)
         end)
     end
 
-    -- Button
     function Zynox:CreateButton(name, parent, callback)
         local y = #parent:GetChildren() * 45
         local btn = Instance.new("TextButton")
@@ -110,7 +101,6 @@ function Zynox:CreateWindow(options)
         btn.MouseButton1Click:Connect(callback)
     end
 
-    -- Toggle
     function Zynox:CreateToggle(name, defaultState, parent, callback)
         local toggled = defaultState or false
         local y = #parent:GetChildren() * 45
@@ -133,7 +123,6 @@ function Zynox:CreateWindow(options)
         end)
     end
 
-    -- Draggable
     local dragging = false
     local dragInput, dragStart, startPos
 
@@ -167,12 +156,10 @@ function Zynox:CreateWindow(options)
     return Zynox
 end
 
--- ShowWelcome Function
-function Zynox:ShowWelcome(titleText, descriptionText)
+-- ShowWelcome with callback
+function Zynox:ShowWelcome(titleText, descriptionText, callback)
     local oldWelcome = PlayerGui:FindFirstChild("ZynoxWelcome")
-    if oldWelcome then
-        oldWelcome:Destroy()
-    end
+    if oldWelcome then oldWelcome:Destroy() end
 
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "ZynoxWelcome"
@@ -188,9 +175,8 @@ function Zynox:ShowWelcome(titleText, descriptionText)
     Frame.BackgroundTransparency = 1
     Frame.Parent = ScreenGui
 
-    local UICorner = Instance.new("UICorner")
+    local UICorner = Instance.new("UICorner", Frame)
     UICorner.CornerRadius = UDim.new(0, 10)
-    UICorner.Parent = Frame
 
     local MainText = Instance.new("TextLabel")
     MainText.Size = UDim2.new(1, -20, 0, 40)
@@ -239,8 +225,10 @@ function Zynox:ShowWelcome(titleText, descriptionText)
         TweenService:Create(MainText, tweenOutInfo, {TextTransparency = 1}):Play()
         TweenService:Create(DescText, tweenOutInfo, {TextTransparency = 1}):Play()
         TweenService:Create(Credit, tweenOutInfo, {TextTransparency = 1}):Play()
+
         task.delay(1, function()
             ScreenGui:Destroy()
+            if callback then callback() end
         end)
     end)
 end
