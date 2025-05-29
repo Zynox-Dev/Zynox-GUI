@@ -14,11 +14,11 @@ local ZynoxUI = {}
 ZynoxUI.__index = ZynoxUI
 ZynoxUI.Version = "1.0.0"
 
+-- Destroy any existing ZynoxUI in CoreGui
 pcall(function()
-    for _, v in pairs(game:GetService("Players").LocalPlayer.PlayerGui:GetChildren()) do
-        if v.Name == "ZynoxUI" then
-            v:Destroy()
-        end
+    local existing = game:GetService("CoreGui"):FindFirstChild("ZynoxUI")
+    if existing then
+        existing:Destroy()
     end
 end)
 
@@ -58,6 +58,7 @@ function ZynoxUI:CreateWindow(title, options)
     local screenGui = create("ScreenGui", {
         Name = "ZynoxUI",
         ResetOnSpawn = false,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
     })
 
     local mainFrame = create("Frame", {
@@ -241,8 +242,9 @@ function ZynoxUI:CreateWindow(title, options)
         return tab
     end
 
-    -- Attach UI to PlayerGui
-    screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+    -- Attach UI to CoreGui
+    screenGui.Parent = game:GetService("CoreGui")
+
     return window
 end
 
