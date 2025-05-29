@@ -1,14 +1,4 @@
---[[ 
-    ZynoxUI - A modern UI library for Roblox
-    Inspired by Rayfield UI
-    Author: YourNameHere
-    Version: 1.0.0
-
-    Features:
-    - Draggable window with a customizable theme
-    - Tab system with buttons (extendable)
-    - Lightweight and modular
---]]
+local TweenService = game:GetService("TweenService")
 
 local ZynoxUI = {}
 ZynoxUI.__index = ZynoxUI
@@ -22,7 +12,6 @@ pcall(function()
     end
 end)
 
--- Themes (Dark by default, more can be added)
 ZynoxUI.Themes = {
     Dark = {
         Background = Color3.fromRGB(25, 25, 25),
@@ -39,7 +28,6 @@ ZynoxUI.Themes = {
     },
 }
 
--- Utility: Create Roblox instances with properties
 local function create(class, properties)
     local instance = Instance.new(class)
     for property, value in pairs(properties) do
@@ -48,26 +36,28 @@ local function create(class, properties)
     return instance
 end
 
--- Create a new UI window
 function ZynoxUI:CreateWindow(title, options)
     options = options or {}
     local theme = options.Theme or "Dark"
     local window = {}
 
-    -- Main UI Elements
     local screenGui = create("ScreenGui", {
         Name = "ZynoxUI",
         ResetOnSpawn = false,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+        Parent = game:GetService("CoreGui"),
+        -- Start invisible for fade in
+        Enabled = false,
     })
 
     local mainFrame = create("Frame", {
         Name = "MainFrame",
         Size = UDim2.new(0, 500, 0, 350),
-        Position = UDim2.new(0.5, -250, 0.5, -175),
+        Position = UDim2.new(0.5, -250, 0.5, -225), -- Start 50px higher for slide down
         BackgroundColor3 = ZynoxUI.Themes[theme].Background,
         BorderSizePixel = 0,
         ClipsDescendants = true,
+        BackgroundTransparency = 1, -- start transparent for fade in
     })
 
     local topbar = create("Frame", {
@@ -96,11 +86,17 @@ function ZynoxUI:CreateWindow(title, options)
         Size = UDim2.new(1, 0, 1, -40),
     })
 
-    -- Parent hierarchy
     topbar.Parent = mainFrame
     titleLabel.Parent = topbar
     tabsContainer.Parent = mainFrame
     mainFrame.Parent = screenGui
+
+    -- Animate fade-in and slide-down on enable
+    screenGui.Enabled = true
+    TweenService:Create(mainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        BackgroundTransparency = 0,
+        Position = UDim2.new(0.5, -250, 0.5, -175),
+    }):Play()
 
     -- Dragging functionality
     do
@@ -143,7 +139,6 @@ function ZynoxUI:CreateWindow(title, options)
         end)
     end
 
-    -- Tab system
     function window:CreateTab(name)
         local tab = {}
 
@@ -167,19 +162,27 @@ function ZynoxUI:CreateWindow(title, options)
             ScrollBarThickness = 3,
             ScrollBarImageColor3 = ZynoxUI.Themes[theme].ToggleAccent,
             Visible = false,
+            CanvasSize = UDim2.new(0,0,0,0),
         })
 
         tabButton.Parent = mainFrame
         tabContent.Parent = tabsContainer
 
-        -- Tab switching logic
+        -- Tab switching logic with fade animation
         tabButton.MouseButton1Click:Connect(function()
             for _, content in ipairs(tabsContainer:GetChildren()) do
                 if content:IsA("ScrollingFrame") then
-                    content.Visible = false
+                    -- Fade out current visible content
+                    if content.Visible then
+                        TweenService:Create(content, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+                        content.Visible = false
+                    end
                 end
             end
+
+            tabContent.BackgroundTransparency = 1
             tabContent.Visible = true
+            TweenService:Create(tabContent, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
 
             for _, btn in ipairs(mainFrame:GetChildren()) do
                 if btn:IsA("TextButton") then
@@ -189,13 +192,13 @@ function ZynoxUI:CreateWindow(title, options)
             tabButton.BackgroundColor3 = ZynoxUI.Themes[theme].Background
         end)
 
-        -- Show the first tab by default
+        -- Show the first tab by default with fade in
         if #tabsContainer:GetChildren() == 1 then
             tabContent.Visible = true
+            tabContent.BackgroundTransparency = 0
             tabButton.BackgroundColor3 = ZynoxUI.Themes[theme].Background
         end
 
-        -- Add buttons to tab
         function tab:CreateButton(options)
             options = options or {}
             local buttonFrame = create("TextButton", {
@@ -216,15 +219,14 @@ function ZynoxUI:CreateWindow(title, options)
                 Parent = buttonFrame,
             })
 
-            -- Hover effects
             buttonFrame.MouseEnter:Connect(function()
-                game:GetService("TweenService"):Create(buttonFrame, TweenInfo.new(0.2), {
+                TweenService:Create(buttonFrame, TweenInfo.new(0.2), {
                     BackgroundColor3 = ZynoxUI.Themes[theme].ButtonHover,
                 }):Play()
             end)
 
             buttonFrame.MouseLeave:Connect(function()
-                game:GetService("TweenService"):Create(buttonFrame, TweenInfo.new(0.2), {
+                TweenService:Create(buttonFrame, TweenInfo.new(0.2), {
                     BackgroundColor3 = ZynoxUI.Themes[theme].Button,
                 }):Play()
             end)
@@ -241,9 +243,6 @@ function ZynoxUI:CreateWindow(title, options)
 
         return tab
     end
-
-    -- Attach UI to CoreGui
-    screenGui.Parent = game:GetService("CoreGui")
 
     return window
 end
