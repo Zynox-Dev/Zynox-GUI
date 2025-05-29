@@ -10,6 +10,16 @@
     - Lightweight and modular
 --]]
 
+-- Cleanup previous instances of ZynoxUI
+pcall(function()
+    for _, v in pairs(game:GetService("Players").LocalPlayer.PlayerGui:GetChildren()) do
+        if v.Name == "ZynoxUI" then
+            v:Destroy()
+        end
+    end
+end)
+
+
 local ZynoxUI = {}
 ZynoxUI.__index = ZynoxUI
 ZynoxUI.Version = "1.0.0"
