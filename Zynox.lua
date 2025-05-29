@@ -10,7 +10,10 @@
     - Lightweight and modular
 --]]
 
--- Cleanup previous instances of ZynoxUI
+local ZynoxUI = {}
+ZynoxUI.__index = ZynoxUI
+ZynoxUI.Version = "1.0.0"
+
 pcall(function()
     for _, v in pairs(game:GetService("Players").LocalPlayer.PlayerGui:GetChildren()) do
         if v.Name == "ZynoxUI" then
@@ -18,11 +21,6 @@ pcall(function()
         end
     end
 end)
-
-
-local ZynoxUI = {}
-ZynoxUI.__index = ZynoxUI
-ZynoxUI.Version = "1.0.0"
 
 -- Themes (Dark by default, more can be added)
 ZynoxUI.Themes = {
