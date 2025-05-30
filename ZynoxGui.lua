@@ -1,5 +1,5 @@
 -- ZynoxUI - A modern UI library for Roblox
--- Version: 3.0.0
+-- Version: 3.0.1 (Improved)
 
 -- Services
 local TweenService = game:GetService("TweenService")
@@ -10,7 +10,7 @@ local CoreGui = game:GetService("CoreGui")
 -- Main ZynoxUI table
 local Zynox = {}
 Zynox.__index = Zynox
-Zynox.Version = "3.0.0"
+Zynox.Version = "3.0.1"
 
 -- Default theme
 Zynox.Theme = {
@@ -53,7 +53,8 @@ function Zynox:CreateWindow(title, options)
     
     self.Elements = {}
     self.Connections = {}
-    self.Theme = options.Theme or "Dark"
+    self.ThemeName = options.Theme or "Dark"
+    self.Theme = Zynox.Theme[self.ThemeName] or Zynox.Theme["Dark"]
     
     -- Create main UI container
     self.Elements.ScreenGui = create("ScreenGui", {
@@ -67,7 +68,7 @@ function Zynox:CreateWindow(title, options)
     self.Elements.MainFrame = create("Frame", {
         Size = UDim2.new(0, 500, 0, 400),
         Position = UDim2.new(0.5, -250, 0.5, -200),
-        BackgroundColor3 = Zynox.Theme[self.Theme].Background,
+        BackgroundColor3 = self.Theme.Background,
         BorderSizePixel = 0,
         Parent = self.Elements.ScreenGui
     })
@@ -80,7 +81,7 @@ function Zynox:CreateWindow(title, options)
         Position = UDim2.new(0, 0, 0, 0),
         BackgroundTransparency = 1,
         Text = title or "ZynoxUI",
-        TextColor3 = Zynox.Theme[self.Theme].Text,
+        TextColor3 = self.Theme.Text,
         TextSize = 24,
         Font = Enum.Font.GothamBold,
         Parent = self.Elements.MainFrame
@@ -115,28 +116,36 @@ function Zynox:CreateWindow(title, options)
         )
     end
     
-    self.Elements.Title.InputBegan:Connect(function(input)
+    local dragConn1
+    local dragConn2
+    
+    dragConn1 = self.Elements.Title.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             dragStart = input.Position
             startPos = self.Elements.MainFrame.Position
-            input.Changed:Connect(function()
+            dragConn2 = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
+                    dragConn2:Disconnect()
                 end
             end)
         end
     end)
     
-    self.Elements.Title.InputChanged:Connect(function(input)
+    local dragConn3 = self.Elements.Title.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
             updateDrag(input)
         end
     end)
     
+    -- Track connections for cleanup
+    table.insert(self.Connections, dragConn1)
+    table.insert(self.Connections, dragConn3)
+    
     -- Store the window for later reference
-    table.insert(Zynox.Windows or {}, self)
-    Zynox.Windows = Zynox.Windows or {self}
+    Zynox.Windows = Zynox.Windows or {}
+    table.insert(Zynox.Windows, self)
     
     return self
 end
@@ -145,9 +154,9 @@ end
 function Window:CreateButton(text, callback)
     local button = create("TextButton", {
         Size = UDim2.new(1, 0, 0, 40),
-        BackgroundColor3 = Zynox.Theme[self.Theme].Button,
+        BackgroundColor3 = self.Theme.Button,
         Text = text or "Button",
-        TextColor3 = Zynox.Theme[self.Theme].Text,
+        TextColor3 = self.Theme.Text,
         TextSize = 18,
         Font = Enum.Font.GothamSemibold,
         Parent = self.Elements.Content,
@@ -158,23 +167,31 @@ function Window:CreateButton(text, callback)
     
     -- Button hover effects
     local originalColor = button.BackgroundColor3
-    local hoverColor = Zynox.Theme[self.Theme].ButtonHover
+    local hoverColor = self.Theme.ButtonHover
     
-    button.MouseEnter:Connect(function()
+    local enterConn = button.MouseEnter:Connect(function()
         TweenService:Create(button, TweenInfo.new(0.2), {
             BackgroundColor3 = hoverColor
         }):Play()
     end)
     
-    button.MouseLeave:Connect(function()
+    local leaveConn = button.MouseLeave:Connect(function()
         TweenService:Create(button, TweenInfo.new(0.2), {
             BackgroundColor3 = originalColor
         }):Play()
     end)
     
     -- Button click handler
+    local clickConn
     if type(callback) == "function" then
-        button.MouseButton1Click:Connect(callback)
+        clickConn = button.MouseButton1Click:Connect(callback)
+    end
+    
+    -- Track connections for cleanup
+    table.insert(self.Connections, enterConn)
+    table.insert(self.Connections, leaveConn)
+    if clickConn then
+        table.insert(self.Connections, clickConn)
     end
     
     return button
@@ -193,7 +210,7 @@ function Window:CreateToggle(text, defaultState, callback)
         Position = UDim2.new(0, 0, 0, 0),
         BackgroundTransparency = 1,
         Text = text or "Toggle",
-        TextColor3 = Zynox.Theme[self.Theme].Text,
+        TextColor3 = self.Theme.Text,
         TextSize = 16,
         TextXAlignment = Enum.TextXAlignment.Left,
         Font = Enum.Font.Gotham,
@@ -204,7 +221,7 @@ function Window:CreateToggle(text, defaultState, callback)
         Size = UDim2.new(0, 50, 0, 24),
         Position = UDim2.new(1, 0, 0.5, -12),
         AnchorPoint = Vector2.new(1, 0.5),
-        BackgroundColor3 = Zynox.Theme[self.Theme].Toggle,
+        BackgroundColor3 = self.Theme.Toggle,
         Parent = toggleFrame
     })
     
@@ -222,7 +239,7 @@ function Window:CreateToggle(text, defaultState, callback)
     
     local function updateToggle()
         local targetPosition = state and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0, 2, 0.5, -10)
-        local targetColor = state and Zynox.Theme[self.Theme].ToggleAccent or Zynox.Theme[self.Theme].Toggle
+        local targetColor = state and self.Theme.ToggleAccent or self.Theme.Toggle
         
         TweenService:Create(toggleOuter, TweenInfo.new(0.3), {
             BackgroundColor3 = targetColor
@@ -238,16 +255,20 @@ function Window:CreateToggle(text, defaultState, callback)
     end
     
     -- Toggle on click
-    toggleFrame.InputBegan:Connect(function(input)
+    local toggleConn = toggleFrame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             state = not state
             updateToggle()
         end
     end)
     
+    -- Track connection for cleanup
+    table.insert(self.Connections, toggleConn)
+    
     -- Set initial state
     updateToggle()
     
+    -- Return toggle API
     return {
         SetState = function(self, newState)
             if state ~= newState then
@@ -264,7 +285,9 @@ end
 -- Add destroy method
 function Window:Destroy()
     for _, connection in ipairs(self.Connections) do
-        connection:Disconnect()
+        if connection.Connected then
+            connection:Disconnect()
+        end
     end
     if self.Elements.ScreenGui then
         self.Elements.ScreenGui:Destroy()
