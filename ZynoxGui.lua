@@ -7,17 +7,6 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 
-function Zynox:CreateWindow(title, options)
-    options = options or {}
-
-    -- Destroy any existing ZynoxUI before creating a new one
-    local existingGui = CoreGui:FindFirstChild("ZynoxUI")
-    if existingGui then
-        existingGui:Destroy()
-    end
-
-    local self = setmetatable({}, Window)
-
     self.Elements = {}
     self.Connections = {}
     self.ThemeName = options.Theme or "Dark"
