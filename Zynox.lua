@@ -57,7 +57,7 @@ local function showWelcomeMessage(title, message, theme)
     create("TextLabel", {
         Text = title or "Welcome!",
         TextColor3 = ZynoxUI.Themes[theme].Text,
-        TextSize = 16,
+        TextSize = 20,
         Font = Enum.Font.GothamSemibold,
         BackgroundTransparency = 1,
         Position = UDim2.new(0, 15, 0, 15),
@@ -69,7 +69,7 @@ local function showWelcomeMessage(title, message, theme)
     local messageLabel = create("TextLabel", {
         Text = message or "Thanks for using ZynoxUI!",
         TextColor3 = ZynoxUI.Themes[theme].Text,
-        TextSize = 14,
+        TextSize = 18,
         Font = Enum.Font.Gotham,
         BackgroundTransparency = 1,
         Position = UDim2.new(0, 15, 0, 45),
@@ -83,7 +83,7 @@ local function showWelcomeMessage(title, message, theme)
     local closeButton = create("TextButton", {
         Text = "×",
         TextColor3 = ZynoxUI.Themes[theme].Text,
-        TextSize = 24,
+        TextSize = 28,
         Font = Enum.Font.GothamBold,
         BackgroundTransparency = 1,
         Position = UDim2.new(1, -30, 0, 5),
@@ -160,7 +160,7 @@ function ZynoxUI:CreateWindow(title, options)
     create("TextLabel", {
         Text = title or "ZynoxUI",
         TextColor3 = ZynoxUI.Themes[theme].Text,
-        TextSize = 18,
+        TextSize = 22,
         Font = Enum.Font.GothamSemibold,
         BackgroundTransparency = 1,
         Position = UDim2.new(0, 15, 0, 0),
@@ -221,7 +221,7 @@ function ZynoxUI:CreateWindow(title, options)
             Text = name,
             TextColor3 = ZynoxUI.Themes[theme].Text,
             Font = Enum.Font.Gotham,
-            Size = UDim2.new(0, 100, 1, 0),
+            Size = UDim2.new(0, 120, 1, 0),
             Position = UDim2.new(0, 10 + ((tabCount - 1) * 105), 0, 0),
             BackgroundColor3 = tabCount == 1 and ZynoxUI.Themes[theme].Background or ZynoxUI.Themes[theme].Topbar,
             BorderSizePixel = 0,
@@ -271,7 +271,8 @@ function ZynoxUI:CreateWindow(title, options)
                 Text = opts.Text or "Button",
                 TextColor3 = ZynoxUI.Themes[theme].Text,
                 Font = Enum.Font.Gotham,
-                Size = UDim2.new(1, 0, 0, 35),
+                TextSize = 18,
+                Size = UDim2.new(0, 120, 0, 40),
                 BackgroundColor3 = ZynoxUI.Themes[theme].Button,
                 Parent = content,
                 AutoButtonColor = false
