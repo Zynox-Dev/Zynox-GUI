@@ -74,6 +74,33 @@ function Zynox:CreateWindow(title, options)
     
     applyCorner(self.Elements.MainFrame)
     
+    -- Add window title
+    self.Elements.Title = create("TextLabel", {
+        Size = UDim2.new(1, 0, 0, 40),
+        Position = UDim2.new(0, 0, 0, 0),
+        BackgroundTransparency = 1,
+        Text = title or "ZynoxUI",
+        TextColor3 = Zynox.Theme[self.Theme].Text,
+        TextSize = 24,
+        Font = Enum.Font.GothamBold,
+        Parent = self.Elements.MainFrame
+    })
+    
+    -- Add content frame
+    self.Elements.Content = create("Frame", {
+        Size = UDim2.new(1, -40, 1, -60),
+        Position = UDim2.new(0, 20, 0, 50),
+        BackgroundTransparency = 1,
+        Parent = self.Elements.MainFrame
+    })
+    
+    -- Add UIListLayout for automatic element arrangement
+    self.Elements.ListLayout = create("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 10),
+        Parent = self.Elements.Content
+    })
+    
     -- Add window dragging
     local dragging = false
     local dragStart, startPos
@@ -88,7 +115,7 @@ function Zynox:CreateWindow(title, options)
         )
     end
     
-    self.Elements.MainFrame.InputBegan:Connect(function(input)
+    self.Elements.Title.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             dragStart = input.Position
@@ -101,13 +128,137 @@ function Zynox:CreateWindow(title, options)
         end
     end)
     
-    self.Elements.MainFrame.InputChanged:Connect(function(input)
+    self.Elements.Title.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
             updateDrag(input)
         end
     end)
     
+    -- Store the window for later reference
+    table.insert(Zynox.Windows or {}, self)
+    Zynox.Windows = Zynox.Windows or {self}
+    
     return self
+end
+
+-- Add button creation method
+function Window:CreateButton(text, callback)
+    local button = create("TextButton", {
+        Size = UDim2.new(1, 0, 0, 40),
+        BackgroundColor3 = Zynox.Theme[self.Theme].Button,
+        Text = text or "Button",
+        TextColor3 = Zynox.Theme[self.Theme].Text,
+        TextSize = 18,
+        Font = Enum.Font.GothamSemibold,
+        Parent = self.Elements.Content,
+        AutoButtonColor = false
+    })
+    
+    applyCorner(button)
+    
+    -- Button hover effects
+    local originalColor = button.BackgroundColor3
+    local hoverColor = Zynox.Theme[self.Theme].ButtonHover
+    
+    button.MouseEnter:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.2), {
+            BackgroundColor3 = hoverColor
+        }):Play()
+    end)
+    
+    button.MouseLeave:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.2), {
+            BackgroundColor3 = originalColor
+        }):Play()
+    end)
+    
+    -- Button click handler
+    if type(callback) == "function" then
+        button.MouseButton1Click:Connect(callback)
+    end
+    
+    return button
+end
+
+-- Add toggle creation method
+function Window:CreateToggle(text, defaultState, callback)
+    local toggleFrame = create("Frame", {
+        Size = UDim2.new(1, 0, 0, 40),
+        BackgroundTransparency = 1,
+        Parent = self.Elements.Content
+    })
+    
+    local label = create("TextLabel", {
+        Size = UDim2.new(0.7, 0, 1, 0),
+        Position = UDim2.new(0, 0, 0, 0),
+        BackgroundTransparency = 1,
+        Text = text or "Toggle",
+        TextColor3 = Zynox.Theme[self.Theme].Text,
+        TextSize = 16,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Font = Enum.Font.Gotham,
+        Parent = toggleFrame
+    })
+    
+    local toggleOuter = create("Frame", {
+        Size = UDim2.new(0, 50, 0, 24),
+        Position = UDim2.new(1, 0, 0.5, -12),
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundColor3 = Zynox.Theme[self.Theme].Toggle,
+        Parent = toggleFrame
+    })
+    
+    local toggleInner = create("Frame", {
+        Size = UDim2.new(0, 20, 0, 20),
+        Position = UDim2.new(0, 2, 0.5, -10),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        Parent = toggleOuter
+    })
+    
+    applyCorner(toggleOuter, UDim.new(1, 0)) -- Full rounded corners
+    applyCorner(toggleInner, UDim.new(1, 0)) -- Full rounded corners
+    
+    local state = defaultState or false
+    
+    local function updateToggle()
+        local targetPosition = state and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0, 2, 0.5, -10)
+        local targetColor = state and Zynox.Theme[self.Theme].ToggleAccent or Zynox.Theme[self.Theme].Toggle
+        
+        TweenService:Create(toggleOuter, TweenInfo.new(0.3), {
+            BackgroundColor3 = targetColor
+        }):Play()
+        
+        TweenService:Create(toggleInner, TweenInfo.new(0.3), {
+            Position = targetPosition
+        }):Play()
+        
+        if callback then
+            callback(state)
+        end
+    end
+    
+    -- Toggle on click
+    toggleFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            state = not state
+            updateToggle()
+        end
+    end)
+    
+    -- Set initial state
+    updateToggle()
+    
+    return {
+        SetState = function(self, newState)
+            if state ~= newState then
+                state = newState
+                updateToggle()
+            end
+        end,
+        GetState = function()
+            return state
+        end
+    }
 end
 
 -- Add destroy method
