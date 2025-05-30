@@ -406,52 +406,67 @@ function ZynoxUI:CreateWindow(title, options)
             opts = opts or {}
             local defaultValue = opts.Default or false
             local toggleState = defaultValue
-            local toggleId = "toggle_"..tostring(math.random(1, 10000))
             
+            -- Create toggle container with better padding and hover effect
             local toggleFrame = create("Frame", {
-                Size = UDim2.new(1, -20, 0, 40),
+                Size = UDim2.new(1, -20, 0, 50),  -- Increased height for better touch targets
                 BackgroundTransparency = 1,
                 Parent = content,
-                Name = "ToggleContainer"
+                Name = "ToggleContainer",
+                LayoutOrder = opts.LayoutOrder or 1
             })
-            
-            -- Make the frame focusable for keyboard navigation
-            local function setFocusable(frame, focusable)
-                frame.Active = focusable
-                frame.Selectable = focusable
-            end
-            
-            setFocusable(toggleFrame, true)
-            
+
+            -- Add a subtle background that appears on hover
+            local hoverBackground = create("Frame", {
+                Size = UDim2.new(1, 0, 1, 0),
+                BackgroundColor3 = theme.ButtonHover,
+                BackgroundTransparency = 0.95,
+                BorderSizePixel = 0,
+                Parent = toggleFrame
+            })
+            create("UICorner", {CornerRadius = UDim.new(0, 6), Parent = hoverBackground})
+            hoverBackground.Visible = false
+
+            -- Main toggle label with better typography
             local label = create("TextLabel", {
                 Text = opts.Text or "Toggle",
                 TextColor3 = theme.Text,
-                TextSize = 22,
-                Font = Enum.Font.Gotham,
+                TextSize = 18,
+                Font = Enum.Font.GothamSemibold,
                 BackgroundTransparency = 1,
-                Size = UDim2.new(1, -80, 1, 0),
+                Size = UDim2.new(1, -120, 1, 0),
+                Position = UDim2.new(0, 15, 0, 0),
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Parent = toggleFrame,
                 Name = "ToggleLabel",
                 TextWrapped = true
             })
-            
-            -- Add accessibility attributes
-            local function updateAccessibility()
-                local stateText = toggleState and "checked" or "unchecked"
-                local description = string.format("%s is %s", opts.Text or "Toggle", stateText)
+
+            -- Add a subtitle if provided
+            if opts.Description then
+                label.Size = UDim2.new(1, -120, 0.6, 0)
+                label.Position = UDim2.new(0, 15, 0.1, 0)
                 
-                -- These would be used by screen readers
-                toggleFrame:SetAttribute("aria-label", description)
-                toggleFrame:SetAttribute("aria-checked", toggleState)
-                toggleFrame:SetAttribute("role", "switch")
+                local description = create("TextLabel", {
+                    Text = opts.Description,
+                    TextColor3 = theme.Text,
+                    TextTransparency = 0.4,
+                    TextSize = 14,
+                    Font = Enum.Font.Gotham,
+                    BackgroundTransparency = 1,
+                    Size = UDim2.new(1, -120, 0.4, 0),
+                    Position = UDim2.new(0, 15, 0.5, 0),
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextYAlignment = Enum.TextYAlignment.Top,
+                    Parent = toggleFrame,
+                    Name = "ToggleDescription"
+                })
             end
-            
-            updateAccessibility()
-            
+
+            -- Toggle switch container
             local toggleOuter = create("Frame", {
-                Size = UDim2.new(0, 50, 0, 25),
-                Position = UDim2.new(1, -60, 0.5, -12.5),
+                Size = UDim2.new(0, 60, 0, 30),  -- Wider for better touch targets
+                Position = UDim2.new(1, -15, 0.5, 0),
                 BackgroundColor3 = theme.Toggle,
                 Parent = toggleFrame,
                 Name = "ToggleSwitch",
@@ -459,46 +474,90 @@ function ZynoxUI:CreateWindow(title, options)
             })
             
             create("UICorner", {
-                CornerRadius = UDim.new(0, 12.5),
+                CornerRadius = UDim.new(1, 0),  -- Fully rounded ends
                 Parent = toggleOuter
             })
             
+            -- Add a glow effect that appears on hover and when active
+            local toggleGlow = create("Frame", {
+                Size = UDim2.new(1, 4, 1, 4),
+                Position = UDim2.new(0, -2, 0, -2),
+                BackgroundColor3 = theme.ToggleAccent,
+                BackgroundTransparency = 0.9,
+                Parent = toggleOuter,
+                ZIndex = 0
+            })
+            create("UICorner", {CornerRadius = UDim.new(1, 0), Parent = toggleGlow})
+            
+            -- Toggle inner circle with shadow
             local toggleInner = create("Frame", {
-                Size = UDim2.new(0, 21, 0, 21),
-                Position = UDim2.new(0, 2, 0.5, -10.5),
+                Size = UDim2.new(0, 26, 0, 26),
+                Position = UDim2.new(0, 2, 0.5, -13),
                 BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-                Parent = toggleOuter
+                Parent = toggleOuter,
+                ZIndex = 2
+            })
+            
+            -- Add shadow effect
+            local shadow = create("ImageLabel", {
+                Size = UDim2.new(1, 6, 1, 6),
+                Position = UDim2.new(0, -3, 0, -3),
+                BackgroundTransparency = 1,
+                Image = "rbxassetid://1316045217",  -- Shadow texture
+                ImageColor3 = Color3.fromRGB(0, 0, 0),
+                ImageTransparency = 0.8,
+                ScaleType = Enum.ScaleType.Slice,
+                SliceCenter = Rect.new(10, 10, 118, 118),
+                Parent = toggleInner,
+                ZIndex = 1
             })
             
             create("UICorner", {
-                CornerRadius = UDim.new(0, 10.5),
+                CornerRadius = UDim.new(1, 0),  -- Fully rounded
                 Parent = toggleInner
             })
             
+            -- Add accessibility attributes
+            local function updateAccessibility()
+                local stateText = toggleState and "checked" or "unchecked"
+                local description = string.format("%s is %s", opts.Text or "Toggle", stateText)
+                
+                toggleFrame:SetAttribute("aria-label", description)
+                toggleFrame:SetAttribute("aria-checked", toggleState)
+                toggleFrame:SetAttribute("role", "switch")
+            end
+            
             local function updateToggle(instant)
-                local tweenInfo = instant and TweenInfo.new(0) or TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                local tweenInfo = instant and TweenInfo.new(0) or TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
                 
                 if toggleState then
                     trackTween(toggleInner, tweenInfo, {
-                        Position = UDim2.new(0, 27, 0.5, -10.5),
+                        Position = UDim2.new(1, -28, 0.5, -13),  -- Slide to right
                         BackgroundColor3 = Color3.fromRGB(255, 255, 255)
                     })
                     trackTween(toggleOuter, tweenInfo, {
-                        BackgroundColor3 = theme.ToggleAccent
+                        BackgroundColor3 = theme.ToggleAccent,
+                        BackgroundTransparency = 0
+                    })
+                    trackTween(toggleGlow, tweenInfo, {
+                        BackgroundTransparency = 0.7
                     })
                 else
                     trackTween(toggleInner, tweenInfo, {
-                        Position = UDim2.new(0, 2, 0.5, -10.5),
-                        BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+                        Position = UDim2.new(0, 2, 0.5, -13),  -- Slide to left
+                        BackgroundColor3 = Color3.fromRGB(230, 230, 230)
                     })
                     trackTween(toggleOuter, tweenInfo, {
-                        BackgroundColor3 = theme.Toggle
+                        BackgroundColor3 = theme.Toggle,
+                        BackgroundTransparency = 0.5
+                    })
+                    trackTween(toggleGlow, tweenInfo, {
+                        BackgroundTransparency = 0.9
                     })
                 end
                 
                 updateAccessibility()
                 
-                -- Fire any state change events
                 if opts.OnStateChanged then
                     opts.OnStateChanged(toggleState)
                 end
