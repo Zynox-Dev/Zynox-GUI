@@ -1,5 +1,13 @@
 -- ZynoxUI - A modern UI library for Roblox
--- Version: 3.0.2
+-- Version: 3.0.2 (Debug Build)
+
+-- Debug mode
+local DEBUG = true
+local function debugPrint(...)
+    if DEBUG then
+        print("[ZynoxUI DEBUG]", ...)
+    end
+end
 
 local ZynoxUI = {
     Version = "3.0.2"
@@ -46,7 +54,6 @@ end
 
 -- Theme
 ZynoxUI.Theme = {
-    Dark = {
         Background = Color3.fromRGB(25, 25, 25),
         Topbar = Color3.fromRGB(20, 20, 20),
         Text = Color3.fromRGB(255, 255, 255),
@@ -66,8 +73,10 @@ local Window = {}
 Window.__index = Window
 
 function ZynoxUI:CreateWindow(title, options)
+    debugPrint("Creating new window with title:", title)
     options = options or {}
     local self = setmetatable({}, Window)
+    debugPrint("Window options:", options)
     
     self.Elements = {}
     self.Connections = {}
@@ -78,9 +87,10 @@ function ZynoxUI:CreateWindow(title, options)
     self.Elements.ScreenGui = create("ScreenGui", {
         Name = "ZynoxUI",
         ResetOnSpawn = false,
-        DisplayOrder = 100,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         Parent = CoreGui
     })
+    debugPrint("Created ScreenGui")
     
     -- Create shadow effect
     self.Elements.Shadow = create("ImageLabel", {
@@ -96,6 +106,7 @@ function ZynoxUI:CreateWindow(title, options)
         ZIndex = 0,
         Parent = self.Elements.ScreenGui
     })
+    debugPrint("Created Shadow")
     
     -- Create main frame
     self.Elements.MainFrame = create("Frame", {
@@ -103,9 +114,9 @@ function ZynoxUI:CreateWindow(title, options)
         Position = UDim2.new(0.5, -250, 0.5, -200),
         BackgroundColor3 = self.Theme.Background,
         BorderSizePixel = 0,
-        Parent = self.Elements.ScreenGui,
         ZIndex = 1
     })
+    debugPrint("Created MainFrame")
     
     -- Add glow effect
     createGlowEffect(self.Elements.MainFrame, self.Theme.Glow, 0.9)
@@ -118,6 +129,7 @@ function ZynoxUI:CreateWindow(title, options)
         BorderSizePixel = 0,
         Parent = self.Elements.MainFrame
     })
+    debugPrint("Created Topbar")
     
     applyCorner(self.Elements.Topbar, UDim.new(0, 8, 0, 0))
     
@@ -133,6 +145,7 @@ function ZynoxUI:CreateWindow(title, options)
         Font = Enum.Font.GothamBold,
         Parent = self.Elements.Topbar
     })
+    debugPrint("Created Title")
     
     -- Create content area
     self.Elements.Content = create("Frame", {
@@ -141,6 +154,7 @@ function ZynoxUI:CreateWindow(title, options)
         BackgroundTransparency = 1,
         Parent = self.Elements.MainFrame
     })
+    debugPrint("Created Content")
     
     -- Add scrolling frame
     self.Elements.ScrollFrame = create("ScrollingFrame", {
@@ -151,6 +165,7 @@ function ZynoxUI:CreateWindow(title, options)
         ScrollBarImageTransparency = 0.7,
         Parent = self.Elements.Content
     })
+    debugPrint("Created ScrollFrame")
     
     -- Add list layout
     self.Elements.ListLayout = create("UIListLayout", {
@@ -158,6 +173,7 @@ function ZynoxUI:CreateWindow(title, options)
         Padding = UDim.new(0, 12),
         Parent = self.Elements.ScrollFrame
     })
+    debugPrint("Created ListLayout")
     
     -- Update scroll frame size when content changes
     self.Elements.ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -210,6 +226,7 @@ end
 
 -- Button Creation
 function Window:CreateButton(text, callback)
+    debugPrint("Creating button with text:", text)
     local buttonContainer = create("Frame", {
         Size = UDim2.new(1, 0, 0, 50),
         BackgroundTransparency = 1,
@@ -264,6 +281,7 @@ function Window:CreateButton(text, callback)
     -- Click handler
     if type(callback) == "function" then
         button.MouseButton1Click:Connect(function()
+            debugPrint("Button clicked:", text)
             TweenService:Create(button, TweenInfo.new(0.1), {
                 Size = UDim2.new(0.95, 0, 0, 42)
             }):Play()
@@ -271,7 +289,13 @@ function Window:CreateButton(text, callback)
             TweenService:Create(button, TweenInfo.new(0.1), {
                 Size = UDim2.new(1, 0, 0, 44)
             }):Play()
-            callback()
+            if callback then
+                debugPrint("Executing button callback")
+                local success, err = pcall(callback)
+                if not success then
+                    debugPrint("Button callback error:", err)
+                end
+            end
         end)
     end
     
@@ -280,6 +304,7 @@ end
 
 -- Toggle Creation
 function Window:CreateToggle(text, defaultState, callback)
+    debugPrint("Creating toggle with text:", text, "Default state:", defaultState)
     local state = defaultState or false
 
     local toggleContainer = create("Frame", {
@@ -305,12 +330,17 @@ function Window:CreateToggle(text, defaultState, callback)
 
     toggleFrame.MouseButton1Click:Connect(function()
         state = not state
+        debugPrint("Toggle state changed to:", state, "for:", text)
         local targetColor = state and self.Theme.ToggleAccent or self.Theme.Toggle
         local targetTransparency = state and 0.8 or 0.95
         TweenService:Create(toggleFrame, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
         TweenService:Create(toggleGlow, TweenInfo.new(0.2), {ImageTransparency = targetTransparency}):Play()
         if callback then
-            callback(state)
+            debugPrint("Executing toggle callback with state:", state)
+            local success, err = pcall(callback, state)
+            if not success then
+                debugPrint("Toggle callback error:", err)
+            end
         end
     end)
 
@@ -335,6 +365,7 @@ end
 
 -- Tab System
 function Window:CreateTabSystem()
+    debugPrint("Creating tab system")
     local tabSystem = {
         Tabs = {},
         CurrentTab = nil,
@@ -390,12 +421,12 @@ function Window:CreateTabSystem()
     
     -- Update scroll frame size when content changes
     tabSystem.Elements.ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        tabSystem.Elements.ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 
-            tabSystem.Elements.ContentLayout.AbsoluteContentSize.Y + 20)
+        tabSystem.Elements.ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, tabSystem.Elements.ContentLayout.AbsoluteContentSize.Y + 20)
     end)
     
     -- Method to add a new tab
     function tabSystem:AddTab(name)
+        debugPrint("Adding new tab:", name)
         local tab = {
             Name = name or "Tab " .. (#self.Tabs + 1),
             Elements = {}
@@ -495,8 +526,10 @@ end
 
 -- Destroy method
 function Window:Destroy()
+    debugPrint("Destroying window and all elements")
     if self.Elements.ScreenGui then
         self.Elements.ScreenGui:Destroy()
+        debugPrint("ScreenGui destroyed")
     end
 end
 
