@@ -1,7 +1,8 @@
 -- ZynoxUI - A modern UI library for Roblox
 -- Version: 2.0.0
 
--- Core Services
+local ZynoxUI = {}
+
 local SERVICES = {
     Tween = game:GetService("TweenService"),
     UserInput = game:GetService("UserInputService"),
