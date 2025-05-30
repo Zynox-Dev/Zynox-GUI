@@ -45,7 +45,7 @@ local function createGlowEffect(parent, color, transparency, size)
 end
 
 -- Theme
-Zynox.Theme = {
+ZynoxUI.Theme = {
     Dark = {
         Background = Color3.fromRGB(25, 25, 25),
         Topbar = Color3.fromRGB(20, 20, 20),
