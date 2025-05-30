@@ -57,11 +57,11 @@ local function showWelcomeMessage(title, message, theme)
     create("TextLabel", {
         Text = title or "Welcome!",
         TextColor3 = ZynoxUI.Themes[theme].Text,
-        TextSize = 20,
+        TextSize = 26,  -- Welcome Title (was 20)
         Font = Enum.Font.GothamSemibold,
         BackgroundTransparency = 1,
         Position = UDim2.new(0, 15, 0, 15),
-        Size = UDim2.new(1, -30, 0, 20),
+        Size = UDim2.new(1, -30, 0, 30),
         TextXAlignment = Enum.TextXAlignment.Left,
         Parent = mainFrame
     })
@@ -69,7 +69,7 @@ local function showWelcomeMessage(title, message, theme)
     local messageLabel = create("TextLabel", {
         Text = message or "Thanks for using ZynoxUI!",
         TextColor3 = ZynoxUI.Themes[theme].Text,
-        TextSize = 18,
+        TextSize = 22,  -- Welcome Message (was 18)
         Font = Enum.Font.Gotham,
         BackgroundTransparency = 1,
         Position = UDim2.new(0, 15, 0, 45),
@@ -83,7 +83,7 @@ local function showWelcomeMessage(title, message, theme)
     local closeButton = create("TextButton", {
         Text = "×",
         TextColor3 = ZynoxUI.Themes[theme].Text,
-        TextSize = 28,
+        TextSize = 32,  -- Welcome Close (×) (was 28)
         Font = Enum.Font.GothamBold,
         BackgroundTransparency = 1,
         Position = UDim2.new(1, -30, 0, 5),
@@ -160,7 +160,7 @@ function ZynoxUI:CreateWindow(title, options)
     create("TextLabel", {
         Text = title or "ZynoxUI",
         TextColor3 = ZynoxUI.Themes[theme].Text,
-        TextSize = 22,
+        TextSize = 28,  -- Window Title (was 22)
         Font = Enum.Font.GothamSemibold,
         BackgroundTransparency = 1,
         Position = UDim2.new(0, 15, 0, 0),
@@ -220,9 +220,10 @@ function ZynoxUI:CreateWindow(title, options)
         local tabButton = create("TextButton", {
             Text = name,
             TextColor3 = ZynoxUI.Themes[theme].Text,
+            TextSize = 20,  -- Tab Buttons (was 14)
             Font = Enum.Font.Gotham,
-            Size = UDim2.new(0, 120, 1, 0),
-            Position = UDim2.new(0, 10 + ((tabCount - 1) * 105), 0, 0),
+            Size = UDim2.new(0, 140, 1, 0),  -- Increased width for tab buttons
+            Position = UDim2.new(0, 10 + ((tabCount - 1) * 150), 0, 0),  -- Increased spacing between tabs
             BackgroundColor3 = tabCount == 1 and ZynoxUI.Themes[theme].Background or ZynoxUI.Themes[theme].Topbar,
             BorderSizePixel = 0,
             Parent = tabButtonsContainer
@@ -270,17 +271,18 @@ function ZynoxUI:CreateWindow(title, options)
             local button = create("TextButton", {
                 Text = opts.Text or "Button",
                 TextColor3 = ZynoxUI.Themes[theme].Text,
+                TextSize = 22,  -- Button Text
                 Font = Enum.Font.Gotham,
-                TextSize = 18,
-                Size = UDim2.new(0, 120, 0, 40),
+                Size = UDim2.new(1, -20, 0, 45),  -- Increased height for better text visibility
                 BackgroundColor3 = ZynoxUI.Themes[theme].Button,
-                Parent = content,
-                AutoButtonColor = false
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                Parent = content
             })
-
-            create("UICorner", { 
-                CornerRadius = UDim.new(0, 6), 
-                Parent = button 
+            
+            create("UICorner", {
+                CornerRadius = UDim.new(0, 6),
+                Parent = button
             })
 
             -- Hover effects
