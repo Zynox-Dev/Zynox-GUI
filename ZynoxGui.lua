@@ -45,7 +45,7 @@ local function createGlowEffect(parent, color, transparency, size)
 end
 
 -- Theme
-ZynoxUI.Theme = {
+Zynox.Theme = {
     Dark = {
         Background = Color3.fromRGB(25, 25, 25),
         Topbar = Color3.fromRGB(20, 20, 20),
@@ -500,7 +500,7 @@ function Window:Destroy()
 end
 
 -- Set up metatable
-Zynox.__index = Zynox
-Zynox.CreateWindow = ZynoxUI.CreateWindow
+ZynoxUI.__index = ZynoxUI
+ZynoxUI.CreateWindow = ZynoxUI.CreateWindow
 
-return Zynox
+return ZynoxUI
