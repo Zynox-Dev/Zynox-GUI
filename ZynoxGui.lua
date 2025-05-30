@@ -177,11 +177,12 @@ function ZynoxUI:CreateWindow(title, options)
             startPos.Y.Offset + delta.Y
         )
         self.Elements.MainFrame.Position = newPos
+        -- Update shadow position with proper offset from main frame
         self.Elements.Shadow.Position = UDim2.new(
             newPos.X.Scale,
-            newPos.X.Offset - 10,
+            newPos.X.Offset - 5,  -- Reduced from 10 to 5 for better visual balance
             newPos.Y.Scale,
-            newPos.Y.Offset - 10
+            newPos.Y.Offset - 5   -- Reduced from 10 to 5 for better visual balance
         )
     end
     
@@ -415,11 +416,11 @@ function Window:CreateTabSystem()
         applyCorner(tab.Elements.Button, UDim.new(0, 6))
         
         -- Create tab content
-        tab.Elements.Content = create("Frame", {
+        tab.Content = create("Frame", {
             Size = UDim2.new(1, 0, 1, 0),
             BackgroundTransparency = 1,
             Visible = false,
-            Parent = self.Elements.ScrollFrame
+            Parent = tabSystem.Elements.Content
         })
         
         -- Add glow effect
@@ -501,6 +502,5 @@ end
 
 -- Set up metatable
 ZynoxUI.__index = ZynoxUI
-ZynoxUI.CreateWindow = ZynoxUI.CreateWindow
 
 return ZynoxUI
