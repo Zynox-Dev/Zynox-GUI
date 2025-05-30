@@ -52,22 +52,6 @@ local function createGlowEffect(parent, color, transparency, size)
     return glow
 end
 
--- Theme
-ZynoxUI.Theme = {
-        Background = Color3.fromRGB(25, 25, 25),
-        Topbar = Color3.fromRGB(20, 20, 20),
-        Text = Color3.fromRGB(255, 255, 255),
-        Button = Color3.fromRGB(35, 35, 35),
-        ButtonHover = Color3.fromRGB(45, 45, 45),
-        Toggle = Color3.fromRGB(40, 40, 40),
-        ToggleAccent = Color3.fromRGB(0, 120, 215),
-        Accent = Color3.fromRGB(0, 120, 215),
-        Border = Color3.fromRGB(60, 60, 60),
-        Glow = Color3.fromRGB(0, 170, 255),
-        Shadow = Color3.fromRGB(0, 0, 0)
-    }
-}
-
 -- Window Class
 local Window = {}
 Window.__index = Window
