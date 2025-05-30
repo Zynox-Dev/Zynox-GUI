@@ -1,53 +1,268 @@
 -- ZynoxUI - A modern UI library for Roblox
--- Version: 1.1.0
+-- Version: 2.0.0
 
--- Service caching for better performance
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
-
-local ZynoxUI = {}
-ZynoxUI.__index = ZynoxUI
-ZynoxUI.Version = "1.1.0"
-
--- Clean existing UI
-pcall(function()
-    for _, v in pairs(game:GetService("CoreGui"):GetChildren()) do
-        if v.Name == "ZynoxUI" then
-            v:Destroy()
-        end
-    end
-end)
-
--- Theme
-ZynoxUI.Themes = {
-    Dark = {
-        Background = Color3.fromRGB(25, 25, 25),
-        Topbar = Color3.fromRGB(20, 20, 20),
-        Text = Color3.fromRGB(255, 255, 255),
-        Button = Color3.fromRGB(35, 35, 35),
-        ButtonHover = Color3.fromRGB(45, 45, 45),
-        Toggle = Color3.fromRGB(40, 40, 40),
-        ToggleAccent = Color3.fromRGB(0, 120, 215),
-    }
+-- Core Services
+local SERVICES = {
+    Tween = game:GetService("TweenService"),
+    UserInput = game:GetService("UserInputService"),
+    Run = game:GetService("RunService"),
+    CoreGui = game:GetService("CoreGui")
 }
 
--- Utility
-local function create(class, properties)
-    local inst = Instance.new(class)
-    for p, v in pairs(properties) do
-        inst[p] = v
+-- Utility Functions
+local function createInstance(class, properties)
+    local instance = Instance.new(class)
+    for prop, value in pairs(properties or {}) do
+        instance[prop] = value
     end
-    return inst
+    return instance
 end
 
--- Welcome Message
-local function showWelcomeMessage(title, message, theme)
-    local notification = create("ScreenGui", {
-        Name = "WelcomeNotification",
-        ResetOnSpawn = false
+local function applyStyle(element, style)
+    for prop, value in pairs(style or {}) do
+        element[prop] = value
+    end
+    return element
+end
+
+local function createCorner(element, radius)
+    local corner = createInstance("UICorner", {CornerRadius = radius})
+    corner.Parent = element
+    return corner
+end
+
+-- Theme Manager
+local ThemeManager = {
+    CurrentTheme = "Dark",
+    Themes = {
+        Dark = {
+            Background = Color3.fromRGB(25, 25, 25),
+            Topbar = Color3.fromRGB(20, 20, 20),
+            Text = Color3.fromRGB(255, 255, 255),
+            Button = Color3.fromRGB(35, 35, 35),
+            ButtonHover = Color3.fromRGB(45, 45, 45),
+            Toggle = Color3.fromRGB(40, 40, 40),
+            ToggleAccent = Color3.fromRGB(0, 120, 215),
+            Accent = Color3.fromRGB(0, 120, 215)
+        }
+    },
+    GetTheme = function(name)
+        return ThemeManager.Themes[name or ThemeManager.CurrentTheme]
+    end
+}
+
+-- Component Base
+local Component = {}
+Component.__index = Component
+
+function Component.new()
+    return setmetatable({
+        Elements = {},
+        Connections = {},
+        Active = true
+    }, Component)
+end
+
+function Component:Destroy()
+    -- Disconnect all connections
+    for _, conn in ipairs(self.Connections) do
+        conn:Disconnect()
+    end
+    
+    -- Destroy all elements
+    for _, element in pairs(self.Elements) do
+        if typeof(element) == "Instance" then
+            element:Destroy()
+        end
+    end
+    
+    -- Clear tables
+    table.clear(self.Elements)
+    table.clear(self.Connections)
+end
+
+-- Window Component
+local Window = setmetatable({}, Component)
+Window.__index = Window
+
+function Window.new(title, options)
+    local self = Component.new()
+    setmetatable(self, Window)
+    
+    local theme = ThemeManager.GetTheme(options.Theme)
+    
+    -- Create main container
+    self.Elements.ScreenGui = createInstance("ScreenGui", {
+        Name = "ZynoxUI",
+        ResetOnSpawn = false,
+        DisplayOrder = 100,
+        Parent = SERVICES.CoreGui
     })
+    
+    self.Elements.MainFrame = createInstance("Frame", {
+        Size = UDim2.new(0, 500, 0, 400),
+        Position = UDim2.new(0.5, -250, 0.5, -200),
+        BackgroundColor3 = theme.Background,
+        BorderSizePixel = 0,
+        Parent = self.Elements.ScreenGui
+    })
+    
+    createCorner(self.Elements.MainFrame, UDim.new(0, 8))
+    
+    return self
+end
+
+-- Tab Component
+local Tab = setmetatable({}, Component)
+Tab.__index = Tab
+
+function Tab.new(window, name)
+    local self = Component.new()
+    setmetatable(self, Tab)
+    
+    local theme = ThemeManager.GetTheme()
+    
+    -- Create tab button
+    self.Elements.Button = createInstance("TextButton", {
+        Text = name,
+        TextColor3 = theme.Text,
+        TextSize = 20,
+        Font = Enum.Font.Gotham,
+        Size = UDim2.new(0, 140, 1, 0),
+        BackgroundColor3 = theme.Topbar,
+        BorderSizePixel = 0,
+        Parent = window.Elements.TabButtonsContainer
+    })
+    
+    -- Create content frame
+    self.Elements.Content = createInstance("ScrollingFrame", {
+        Size = UDim2.new(1, -20, 1, -20),
+        Position = UDim2.new(0, 10, 0, 10),
+        ScrollBarThickness = 3,
+        ScrollBarImageColor3 = theme.Accent,
+        BackgroundTransparency = 1,
+        Parent = window.Elements.TabsContainer
+    })
+    
+    createInstance("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 10),
+        Parent = self.Elements.Content
+    })
+    
+    return self
+end
+
+-- Toggle Component
+local Toggle = setmetatable({}, Component)
+Toggle.__index = Toggle
+
+function Toggle.new(parent, options)
+    local self = Component.new()
+    setmetatable(self, Toggle)
+    
+    local theme = ThemeManager.GetTheme()
+    
+    -- Create container
+    self.Elements.Container = createInstance("Frame", {
+        Size = UDim2.new(1, -20, 0, 50),
+        BackgroundTransparency = 1,
+        Parent = parent
+    })
+    
+    -- Create toggle label
+    self.Elements.Label = createInstance("TextLabel", {
+        Text = options.Text or "Toggle",
+        TextColor3 = theme.Text,
+        TextSize = 18,
+        Font = Enum.Font.GothamSemibold,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, -120, 1, 0),
+        Position = UDim2.new(0, 15, 0, 0),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = self.Elements.Container
+    })
+    
+    -- Create toggle switch
+    self.Elements.Switch = createInstance("Frame", {
+        Size = UDim2.new(0, 60, 0, 30),
+        Position = UDim2.new(1, -15, 0.5, 0),
+        BackgroundColor3 = theme.Toggle,
+        AnchorPoint = Vector2.new(1, 0.5),
+        Parent = self.Elements.Container
+    })
+    
+    createCorner(self.Elements.Switch, UDim.new(1, 0))
+    
+    -- Create toggle knob
+    self.Elements.Knob = createInstance("Frame", {
+        Size = UDim2.new(0, 26, 0, 26),
+        Position = UDim2.new(0, 2, 0.5, -13),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        Parent = self.Elements.Switch
+    })
+    
+    createCorner(self.Elements.Knob, UDim.new(1, 0))
+    
+    -- Initialize state
+    self.State = options.Default or false
+    self:UpdateVisuals()
+    
+    -- Connect events
+    local function onClick()
+        self.State = not self.State
+        self:UpdateVisuals()
+        if options.Callback then
+            options.Callback(self.State)
+        end
+    end
+    
+    table.insert(self.Connections, self.Elements.Container.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            onClick()
+        end
+    end))
+    
+    return self
+end
+
+function Toggle:UpdateVisuals()
+    local theme = ThemeManager.GetTheme()
+    local targetPos = self.State and UDim2.new(1, -28, 0.5, -13) or UDim2.new(0, 2, 0.5, -13)
+    local targetColor = self.State and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(230, 230, 230)
+    
+    SERVICES.Tween:Create(self.Elements.Knob, TweenInfo.new(0.3), {
+        Position = targetPos,
+        BackgroundColor3 = targetColor
+    }):Play()
+    
+    SERVICES.Tween:Create(self.Elements.Switch, TweenInfo.new(0.3), {
+        BackgroundColor3 = self.State and theme.ToggleAccent or theme.Toggle
+    }):Play()
+end
+
+-- Main ZynoxUI Interface
+local ZynoxUI = {}
+ZynoxUI.__index = ZynoxUI
+ZynoxUI.Version = "2.0.0"
+
+function ZynoxUI:CreateWindow(title, options)
+    options = options or {}
+    local window = Window.new(title, options)
+    
+    -- Add tab management
+    window.CreateTab = function(self, name)
+        return Tab.new(self, name)
+    end
+    
+    return window
+end
+
+function ZynoxUI:CreateToggle(parent, options)
+    return Toggle.new(parent, options)
+end
+
+return ZynoxUI
 
     local mainFrame = create("Frame", {
         Size = UDim2.new(0, 300, 0, 120),
@@ -135,6 +350,11 @@ local function getThemeColors(themeName)
     end
     return theme
 end
+
+-- Main ZynoxUI Interface
+local ZynoxUI = {}
+ZynoxUI.__index = ZynoxUI
+ZynoxUI.Version = "2.0.0"
 
 function ZynoxUI:CreateWindow(title, options)
     options = options or {}
