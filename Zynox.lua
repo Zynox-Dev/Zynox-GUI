@@ -1,8 +1,15 @@
--- ZynoxUI (Fixed version)
+-- ZynoxUI - A modern UI library for Roblox
+-- Version: 1.1.0
+
+-- Service caching for better performance
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
 
 local ZynoxUI = {}
 ZynoxUI.__index = ZynoxUI
-ZynoxUI.Version = "1.0.0"
+ZynoxUI.Version = "1.1.0"
 
 -- Clean existing UI
 pcall(function()
@@ -119,18 +126,60 @@ local function showWelcomeMessage(title, message, theme)
 end
 
 -- Create window
+-- Validates and returns the theme colors, falls back to Dark theme if invalid
+local function getThemeColors(themeName)
+    local theme = ZynoxUI.Themes[themeName or "Dark"]
+    if not theme then
+        warn(string.format("Theme '%s' not found, falling back to Dark theme", tostring(themeName)))
+        theme = ZynoxUI.Themes.Dark
+    end
+    return theme
+end
+
 function ZynoxUI:CreateWindow(title, options)
     options = options or {}
-    local theme = options.Theme or "Dark"
+    local themeName = options.Theme or "Dark"
+    local theme = getThemeColors(themeName)
     local window = {}
     local tabCount = 0
     local currentTab = nil
+    local activeTweens = {}
+    local connections = {}
+    
+    -- Cleanup function to prevent memory leaks
+    local function cleanup()
+        for _, connection in ipairs(connections) do
+            connection:Disconnect()
+        end
+        table.clear(connections)
+        
+        for _, tween in pairs(activeTweens) do
+            tween:Cancel()
+        end
+        table.clear(activeTweens)
+    end
+    
+    -- Track a tween for proper cleanup
+    local function trackTween(instance, tweenInfo, properties)
+        local tween = TweenService:Create(instance, tweenInfo, properties)
+        activeTweens[instance] = tween
+        tween.Completed:Connect(function()
+            activeTweens[instance] = nil
+        end)
+        tween:Play()
+        return tween
+    end
 
+    -- Create the main UI container
     local screenGui = create("ScreenGui", {
         Name = "ZynoxUI",
         ResetOnSpawn = false,
-        Parent = game:GetService("CoreGui")
+        DisplayOrder = 100,  -- Ensure it appears on top
+        Parent = CoreGui
     })
+    
+    -- Store reference for cleanup
+    window._gui = screenGui
 
     local mainFrame = create("Frame", {
         Size = UDim2.new(0, 500, 0, 400),
@@ -183,33 +232,81 @@ function ZynoxUI:CreateWindow(title, options)
         Parent = mainFrame
     })
 
-    -- Dragging
+    -- Enhanced dragging with better input handling
     do
-        local dragging, dragStart, startPos
-        topbar.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = true
-                dragStart = input.Position
-                startPos = mainFrame.Position
-                input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then
-                        dragging = false
-                    end
-                end)
-            end
-        end)
+        local dragging = false
+        local dragStart, startPos
+        local lastDragTime = 0
+        local DRAG_DEBOUNCE = 1/60  -- 60 FPS
         
-        game:GetService("UserInputService").InputChanged:Connect(function(input)
-            if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                local delta = input.Position - dragStart
+        -- Handle drag start
+        local function onInputBegan(input, gameProcessed)
+            if gameProcessed or input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+                return
+            end
+            
+            dragging = true
+            dragStart = input.Position
+            startPos = mainFrame.Position
+            
+            -- Connect to input changed/ended only when needed
+            local inputChanged, inputEnded
+            
+            inputEnded = UserInputService.InputEnded:Connect(function(endInput)
+                if endInput.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragging = false
+                    if inputChanged then
+                        inputChanged:Disconnect()
+                    end
+                    inputEnded:Disconnect()
+                end
+            end)
+            
+            inputChanged = UserInputService.InputChanged:Connect(function(moveInput)
+                if not dragging or moveInput.UserInputType ~= Enum.UserInputType.MouseMovement then
+                    return
+               
+                -- Simple debouncing
+                local now = tick()
+                if now - lastDragTime < DRAG_DEBOUNCE then
+                    return
+                end
+                lastDragTime = now
+                
+                -- Calculate new position
+                local delta = moveInput.Position - dragStart
+                local newX = startPos.X.Offset + delta.X
+                local newY = startPos.Y.Offset + delta.Y
+                
+                -- Apply position update
                 mainFrame.Position = UDim2.new(
                     startPos.X.Scale, 
-                    startPos.X.Offset + delta.X, 
+                    newX,
                     startPos.Y.Scale, 
-                    startPos.Y.Offset + delta.Y
+                    newY
                 )
+            end)
+            
+            -- Store connections for cleanup
+            table.insert(connections, inputEnded)
+            if inputChanged then
+                table.insert(connections, inputChanged)
             end
-        end)
+        end
+        
+        -- Connect input handlers
+        local topbarInput = topbar.InputBegan:Connect(onInputBegan)
+        table.insert(connections, topbarInput)
+        
+        -- Add keyboard accessibility
+        local titleLabel = topbar:FindFirstChildWhichIsA("TextLabel")
+        if titleLabel then
+            titleLabel.InputBegan:Connect(function(input, gameProcessed)
+                if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.Return then
+                    onInputBegan(InputObject.new("InputObject", Enum.UserInputType.MouseButton1, Enum.UserInputState.Begin), false)
+                end
+            end)
+        end
     end
 
     -- Tabs
@@ -305,6 +402,214 @@ function ZynoxUI:CreateWindow(title, options)
             return button
         end
 
+        function tab:CreateToggle(opts)
+            opts = opts or {}
+            local defaultValue = opts.Default or false
+            local toggleState = defaultValue
+            local toggleId = "toggle_"..tostring(math.random(1, 10000))
+            
+            local toggleFrame = create("Frame", {
+                Size = UDim2.new(1, -20, 0, 40),
+                BackgroundTransparency = 1,
+                Parent = content,
+                Name = "ToggleContainer"
+            })
+            
+            -- Make the frame focusable for keyboard navigation
+            local function setFocusable(frame, focusable)
+                frame.Active = focusable
+                frame.Selectable = focusable
+            end
+            
+            setFocusable(toggleFrame, true)
+            
+            local label = create("TextLabel", {
+                Text = opts.Text or "Toggle",
+                TextColor3 = theme.Text,
+                TextSize = 22,
+                Font = Enum.Font.Gotham,
+                BackgroundTransparency = 1,
+                Size = UDim2.new(1, -80, 1, 0),
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = toggleFrame,
+                Name = "ToggleLabel",
+                TextWrapped = true
+            })
+            
+            -- Add accessibility attributes
+            local function updateAccessibility()
+                local stateText = toggleState and "checked" or "unchecked"
+                local description = string.format("%s is %s", opts.Text or "Toggle", stateText)
+                
+                -- These would be used by screen readers
+                toggleFrame:SetAttribute("aria-label", description)
+                toggleFrame:SetAttribute("aria-checked", toggleState)
+                toggleFrame:SetAttribute("role", "switch")
+            end
+            
+            updateAccessibility()
+            
+            local toggleOuter = create("Frame", {
+                Size = UDim2.new(0, 50, 0, 25),
+                Position = UDim2.new(1, -60, 0.5, -12.5),
+                BackgroundColor3 = theme.Toggle,
+                Parent = toggleFrame,
+                Name = "ToggleSwitch",
+                AnchorPoint = Vector2.new(1, 0.5)
+            })
+            
+            create("UICorner", {
+                CornerRadius = UDim.new(0, 12.5),
+                Parent = toggleOuter
+            })
+            
+            local toggleInner = create("Frame", {
+                Size = UDim2.new(0, 21, 0, 21),
+                Position = UDim2.new(0, 2, 0.5, -10.5),
+                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                Parent = toggleOuter
+            })
+            
+            create("UICorner", {
+                CornerRadius = UDim.new(0, 10.5),
+                Parent = toggleInner
+            })
+            
+            local function updateToggle(instant)
+                local tweenInfo = instant and TweenInfo.new(0) or TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                
+                if toggleState then
+                    trackTween(toggleInner, tweenInfo, {
+                        Position = UDim2.new(0, 27, 0.5, -10.5),
+                        BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                    })
+                    trackTween(toggleOuter, tweenInfo, {
+                        BackgroundColor3 = theme.ToggleAccent
+                    })
+                else
+                    trackTween(toggleInner, tweenInfo, {
+                        Position = UDim2.new(0, 2, 0.5, -10.5),
+                        BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+                    })
+                    trackTween(toggleOuter, tweenInfo, {
+                        BackgroundColor3 = theme.Toggle
+                    })
+                end
+                
+                updateAccessibility()
+                
+                -- Fire any state change events
+                if opts.OnStateChanged then
+                    opts.OnStateChanged(toggleState)
+                end
+            end
+            
+            -- Set initial state (instantly, no animation)
+            updateToggle(true)
+            
+            local function toggleStateWithFeedback(newValue)
+                if toggleState ~= newValue then
+                    toggleState = newValue
+                    updateToggle()
+                    if opts.Callback then
+                        opts.Callback(toggleState)
+                    end
+                end
+            end
+            
+            local function onClick()
+                toggleStateWithFeedback(not toggleState)
+            end
+            
+            -- Mouse click handling
+            local function onInputBegan(input, gameProcessed)
+                if gameProcessed then return end
+                
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    onClick()
+                end
+            end
+            
+            -- Keyboard handling
+            local function onKeyPress(input, gameProcessed)
+                if gameProcessed then return end
+                
+                if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.Return then
+                    onClick()
+                end
+            end
+            
+            -- Connect input events
+            local function connectInputs()
+                local conn1 = toggleOuter.InputBegan:Connect(onInputBegan)
+                local conn2 = label.InputBegan:Connect(onInputBegan)
+                local conn3 = toggleFrame.InputBegan:Connect(onKeyPress)
+                
+                -- Store connections for cleanup
+                table.insert(connections, conn1)
+                table.insert(connections, conn2)
+                table.insert(connections, conn3)
+            end
+            
+            connectInputs()
+            
+            -- Add visual feedback for focus
+            toggleFrame.MouseEnter:Connect(function()
+                if not toggleFrame:IsFocused() then
+                    toggleFrame.BackgroundColor3 = theme.ButtonHover
+                    toggleFrame.BackgroundTransparency = 0.9
+                end
+            end)
+            
+            toggleFrame.MouseLeave:Connect(function()
+                if not toggleFrame:IsFocused() then
+                    toggleFrame.BackgroundTransparency = 1
+                end
+            end)
+            
+            toggleFrame.Focused:Connect(function()
+                toggleFrame.BackgroundColor3 = theme.ButtonHover
+                toggleFrame.BackgroundTransparency = 0.9
+            end)
+            
+            toggleFrame.FocusLost:Connect(function()
+                toggleFrame.BackgroundTransparency = 1
+            end)
+            
+            local toggle = {}
+            
+            function toggle:SetValue(value, instant)
+                if type(value) ~= "boolean" then return end
+                if toggleState ~= value then
+                    toggleState = value
+                    updateToggle(not instant)
+                end
+            end
+            
+            function toggle:GetValue()
+                return toggleState
+            end
+            
+            function toggle:Toggle()
+                toggleStateWithFeedback(not toggleState)
+                return toggleState
+            end
+            
+            -- Add destroy method to clean up connections
+            function toggle:Destroy()
+                -- Cleanup is handled by the parent window's cleanup
+            end
+            
+            -- Call the callback immediately if requested
+            if opts.CallOnCreate and opts.Callback then
+                task.defer(function()
+                    opts.Callback(toggleState)
+                end)
+            end
+            
+            return toggle
+        end
+
         -- Make first tab active by default
         if tabCount == 1 then
             currentTab = tab
@@ -313,7 +618,33 @@ function ZynoxUI:CreateWindow(title, options)
         return tab
     end
 
-    showWelcomeMessage("Welcome to ZynoxUI!", "Thanks for using ZynoxUI, hope you enjoy!", theme)
+    -- Add destroy method
+    function window:Destroy()
+        cleanup()
+        if screenGui and screenGui.Parent then
+            screenGui:Destroy()
+        end
+    end
+    
+    -- Add a method to change theme
+    function window:SetTheme(newThemeName)
+        local newTheme = getThemeColors(newThemeName)
+        -- TODO: Implement theme switching logic
+        -- This would involve updating all UI elements to use the new theme colors
+    end
+    
+    -- Show welcome message if enabled
+    if options.WelcomeMessage ~= false then
+        showWelcomeMessage(
+            options.WelcomeTitle or "Welcome to ZynoxUI!", 
+            options.WelcomeText or "Thanks for using ZynoxUI, hope you enjoy!", 
+            theme
+        )
+    end
+    
+    -- Clean up when the window is destroyed
+    screenGui.Destroying:Connect(cleanup)
+    
     return window
 end
 
