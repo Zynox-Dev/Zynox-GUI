@@ -1,309 +1,202 @@
--- Zynox.lua
--- Enhanced Zynox UI Library
--- Version: 1.0.0
-
-local Zynox = {}
-Zynox.__index = Zynox
-
--- Services
+-- ZynoxUI.lua
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 
--- Constants
-local DEFAULT_THEME = {
+local ZynoxUI = {}
+ZynoxUI.__index = ZynoxUI
+
+local theme = {
     Primary = Color3.fromRGB(30, 30, 36),
     Secondary = Color3.fromRGB(25, 25, 30),
-    Tertiary = Color3.fromRGB(35, 35, 42),
-    Accent = Color3.fromRGB(0, 120, 215),
     Text = Color3.fromRGB(220, 220, 220),
-    TextSecondary = Color3.fromRGB(180, 180, 190),
-    Success = Color3.fromRGB(76, 209, 55),
-    Warning = Color3.fromRGB(255, 193, 7),
-    Error = Color3.fromRGB(255, 71, 87)
+    Accent = Color3.fromRGB(0, 120, 215)
 }
 
--- Utility Functions
-local function create(instanceType, properties)
-    local instance = Instance.new(instanceType)
-    for property, value in pairs(properties) do
-        instance[property] = value
+function ZynoxUI:CreateWindow(opts)
+    opts = opts or {}
+    local title = opts.Title or "Zynox Hub"
+
+    local self = setmetatable({}, ZynoxUI)
+
+    -- ScreenGui
+    self.screenGui = Instance.new("ScreenGui")
+    self.screenGui.Name = "ZynoxUI"
+    self.screenGui.ResetOnSpawn = false
+    self.screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    self.screenGui.Parent = CoreGui
+
+    -- Main Frame
+    self.mainFrame = Instance.new("Frame")
+    self.mainFrame.Name = "MainFrame"
+    self.mainFrame.Size = UDim2.new(0, 700, 0, 500)
+    self.mainFrame.Position = UDim2.new(0.5, -350, 0.5, -250)
+    self.mainFrame.BackgroundColor3 = theme.Primary
+    self.mainFrame.BorderSizePixel = 0
+    self.mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    self.mainFrame.ClipsDescendants = true
+    self.mainFrame.Parent = self.screenGui
+
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 8)
+    uiCorner.Parent = self.mainFrame
+
+    -- Title Bar
+    local titleBar = Instance.new("Frame")
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 40)
+    titleBar.Position = UDim2.new(0, 0, 0, 0)
+    titleBar.BackgroundColor3 = theme.Secondary
+    titleBar.BorderSizePixel = 0
+    titleBar.Parent = self.mainFrame
+
+    -- Title Text
+    local titleText = Instance.new("TextLabel")
+    titleText.Name = "Title"
+    titleText.Size = UDim2.new(1, -20, 1, 0)
+    titleText.Position = UDim2.new(0, 15, 0, 0)
+    titleText.BackgroundTransparency = 1
+    titleText.Text = title
+    titleText.TextColor3 = theme.Text
+    titleText.TextSize = 18
+    titleText.TextXAlignment = Enum.TextXAlignment.Left
+    titleText.Font = Enum.Font.GothamSemibold
+    titleText.Parent = titleBar
+
+    -- Close Button
+    local closeButton = Instance.new("TextButton")
+    closeButton.Name = "CloseButton"
+    closeButton.Size = UDim2.new(0, 40, 1, 0)
+    closeButton.Position = UDim2.new(1, -40, 0, 0)
+    closeButton.BackgroundTransparency = 1
+    closeButton.Text = "×"
+    closeButton.TextColor3 = theme.Text
+    closeButton.TextSize = 24
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.Parent = titleBar
+
+    closeButton.MouseButton1Click:Connect(function()
+        self.screenGui:Destroy()
+    end)
+
+    -- Sidebar
+    local sidebar = Instance.new("Frame")
+    sidebar.Name = "Sidebar"
+    sidebar.Size = UDim2.new(0, 160, 1, -40)
+    sidebar.Position = UDim2.new(0, 0, 0, 40)
+    sidebar.BackgroundColor3 = theme.Secondary
+    sidebar.BorderSizePixel = 0
+    sidebar.Parent = self.mainFrame
+
+    -- User Info
+    local userInfo = Instance.new("Frame")
+    userInfo.Name = "UserInfo"
+    userInfo.Size = UDim2.new(1, -20, 0, 80)
+    userInfo.Position = UDim2.new(0, 10, 0, 10)
+    userInfo.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+    userInfo.BorderSizePixel = 0
+    userInfo.Parent = sidebar
+
+    local userCorner = Instance.new("UICorner")
+    userCorner.CornerRadius = UDim.new(0, 6)
+    userCorner.Parent = userInfo
+
+    local player = Players.LocalPlayer
+    local welcomeText = Instance.new("TextLabel")
+    welcomeText.Name = "WelcomeText"
+    welcomeText.Size = UDim2.new(1, -20, 0, 40)
+    welcomeText.Position = UDim2.new(0, 10, 0, 20)
+    welcomeText.BackgroundTransparency = 1
+    welcomeText.Text = "Welcome,\n" .. player.Name
+    welcomeText.TextColor3 = theme.Text
+    welcomeText.TextSize = 16
+    welcomeText.TextXAlignment = Enum.TextXAlignment.Left
+    welcomeText.TextYAlignment = Enum.TextYAlignment.Top
+    welcomeText.Font = Enum.Font.Gotham
+    welcomeText.Parent = userInfo
+
+    -- Navigation Buttons & content container
+    self.contentFrame = Instance.new("Frame")
+    self.contentFrame.Name = "ContentFrame"
+    self.contentFrame.Size = UDim2.new(1, -180, 1, -50)
+    self.contentFrame.Position = UDim2.new(0, 160, 0, 50)
+    self.contentFrame.BackgroundColor3 = theme.Primary
+    self.contentFrame.BorderSizePixel = 0
+    self.contentFrame.Parent = self.mainFrame
+
+    self.navButtons = {}
+
+    local navButtons = {
+        {Name = "Home", Position = 1, Callback = function() self:ShowHome() end},
+        {Name = "Scripts", Position = 2, Callback = function() self:ShowScripts() end},
+        {Name = "Settings", Position = 3, Callback = function() self:ShowSettings() end}
+    }
+
+    local buttonHeight = 36
+    local buttonPadding = 8
+
+    for _, btn in ipairs(navButtons) do
+        local button = Instance.new("TextButton")
+        button.Name = btn.Name .. "Button"
+        button.Size = UDim2.new(1, -20, 0, buttonHeight)
+        button.Position = UDim2.new(0, 10, 0, 110 + ((buttonHeight + buttonPadding) * (btn.Position - 1)))
+        button.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+        button.BorderSizePixel = 0
+        button.Text = "   " .. btn.Name
+        button.TextColor3 = theme.Text
+        button.TextSize = 14
+        button.TextXAlignment = Enum.TextXAlignment.Left
+        button.Font = Enum.Font.Gotham
+        button.AutoButtonColor = false
+        button.Parent = sidebar
+
+        local buttonCorner = Instance.new("UICorner")
+        buttonCorner.CornerRadius = UDim.new(0, 6)
+        buttonCorner.Parent = button
+
+        button.MouseEnter:Connect(function()
+            TweenService:Create(button, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+            }):Play()
+        end)
+        button.MouseLeave:Connect(function()
+            TweenService:Create(button, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+            }):Play()
+        end)
+
+        button.MouseButton1Click:Connect(btn.Callback)
+
+        self.navButtons[btn.Name] = button
     end
-    return instance
-end
 
-local function createRoundedFrame(properties)
-    local frame = create("Frame", properties)
-    local corner = create("UICorner", {
-        CornerRadius = UDim.new(0, 8),
-        Parent = frame
-    })
-    return frame, corner
-end
+    -- Dragging
+    self:MakeDraggable(titleBar, self.mainFrame)
 
--- Zynox Class
-function Zynox.new(options)
-    options = options or {}
-    local self = setmetatable({}, Zynox)
-    
-    -- Initialize properties
-    self.theme = options.theme or DEFAULT_THEME
-    self.size = options.size or UDim2.new(0, 720, 0, 480)
-    self.position = options.position or UDim2.new(0.5, -360, 0.5, -240)
-    self.title = options.title or "Zynox"
-    self.minSize = options.minSize or UDim2.new(0, 400, 0, 300)
-    
-    -- Create UI
-    self:createUI()
-    self:setupDragging()
-    self:setupResize()
-    
+    -- Show home screen default
+    self:ShowHome()
+
+    -- Open animation
+    self.mainFrame.Position = UDim2.new(0.5, -350, 0.4, -250)
+    self.mainFrame.BackgroundTransparency = 1
+    TweenService:Create(self.mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+        Position = UDim2.new(0.5, -350, 0.5, -250),
+        BackgroundTransparency = 0
+    }):Play()
+
     return self
 end
 
-function Zynox:createUI()
-    -- Main ScreenGui
-    self.screenGui = create("ScreenGui", {
-        Name = "ZynoxUI",
-        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-        ResetOnSpawn = false,
-        Parent = CoreGui
-    })
+function ZynoxUI:MakeDraggable(dragGui, targetGui)
+    local dragging, dragInput, dragStart, startPos
 
-    -- Main Container
-    self.mainFrame, _ = createRoundedFrame({
-        Name = "MainFrame",
-        Size = self.size,
-        Position = self.position,
-        BackgroundColor3 = self.theme.Primary,
-        BorderSizePixel = 0,
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        ClipsDescendants = true,
-        Parent = self.screenGui
-    })
-
-    -- Title Bar
-    self.titleBar = createRoundedFrame({
-        Name = "TitleBar",
-        Size = UDim2.new(1, 0, 0, 40),
-        Position = UDim2.new(0, 0, 0, 0),
-        BackgroundColor3 = self.theme.Secondary,
-        Parent = self.mainFrame
-    })
-    self.titleBar.UICorner.CornerRadius = UDim.new(0, 8, 0, 0)
-
-    -- Title Text
-    self.titleText = create("TextLabel", {
-        Name = "TitleText",
-        Size = UDim2.new(1, -100, 1, 0),
-        Position = UDim2.new(0, 15, 0, 0),
-        BackgroundTransparency = 1,
-        Text = self.title,
-        TextColor3 = self.theme.Text,
-        TextSize = 18,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Font = Enum.Font.GothamSemibold,
-        Parent = self.titleBar
-    })
-
-    -- Close Button
-    self.closeButton = create("TextButton", {
-        Name = "CloseButton",
-        Size = UDim2.new(0, 40, 0, 40),
-        Position = UDim2.new(1, -40, 0, 0),
-        BackgroundTransparency = 1,
-        Text = "×",
-        TextColor3 = self.theme.Text,
-        TextSize = 28,
-        Font = Enum.Font.GothamBold,
-        Parent = self.titleBar
-    })
-
-    -- Sidebar
-    self:createSidebar()
-    
-    -- Content Frame
-    self.contentFrame = create("Frame", {
-        Name = "ContentFrame",
-        Size = UDim2.new(1, -180, 1, -50),
-        Position = UDim2.new(0, 160, 0, 50),
-        BackgroundColor3 = self.theme.Primary,
-        BorderSizePixel = 0,
-        Parent = self.mainFrame
-    })
-
-    -- Initialize default content
-    self:setupDefaultContent()
-end
-
-function Zynox:createSidebar()
-    self.sidebar = create("Frame", {
-        Name = "Sidebar",
-        Size = UDim2.new(0, 160, 1, -40),
-        Position = UDim2.new(0, 0, 0, 40),
-        BackgroundColor3 = self.theme.Secondary,
-        BorderSizePixel = 0,
-        Parent = self.mainFrame
-    })
-
-    -- User Info
-    self.userInfo = createRoundedFrame({
-        Name = "UserInfo",
-        Size = UDim2.new(1, -20, 0, 80),
-        Position = UDim2.new(0, 10, 0, 10),
-        BackgroundColor3 = self.theme.Tertiary,
-        Parent = self.sidebar
-    })
-
-    local player = Players.LocalPlayer
-    local displayName = player.DisplayName ~= player.Name and player.DisplayName or player.Name
-    self.userName = create("TextLabel", {
-        Name = "UserName",
-        Size = UDim2.new(1, -20, 0, 40),
-        Position = UDim2.new(0, 10, 0, 20),
-        BackgroundTransparency = 1,
-        Text = displayName,
-        TextColor3 = self.theme.Text,
-        TextSize = 16,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextYAlignment = Enum.TextYAlignment.Top,
-        Font = Enum.Font.GothamSemibold,
-        Parent = self.userInfo
-    })
-
-    self.userId = create("TextLabel", {
-        Name = "UserId",
-        Size = UDim2.new(1, -20, 0, 20),
-        Position = UDim2.new(0, 10, 0, 50),
-        BackgroundTransparency = 1,
-        Text = "ID: " .. tostring(player.UserId),
-        TextColor3 = self.theme.TextSecondary,
-        TextSize = 12,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Font = Enum.Font.Gotham,
-        Parent = self.userInfo
-    })
-
-    -- Navigation
-    self.navButtons = {}
-    self:addNavButton("Home", 1, "rbxassetid://6031075931")
-    self:addNavButton("Scripts", 2, "rbxassetid://6031075927")
-    self:addNavButton("Settings", 3, "rbxassetid://6031075938")
-end
-
-function Zynox:addNavButton(name, position, iconId)
-    local button = create("TextButton", {
-        Name = name .. "Button",
-        Size = UDim2.new(1, -20, 0, 36),
-        Position = UDim2.new(0, 10, 0, 110 + (position - 1) * 46),
-        BackgroundColor3 = self.theme.Tertiary,
-        BorderSizePixel = 0,
-        Text = "   " .. name,
-        TextColor3 = self.theme.Text,
-        TextSize = 14,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Font = Enum.Font.Gotham,
-        Parent = self.sidebar
-    })
-
-    local corner = create("UICorner", {
-        CornerRadius = UDim.new(0, 6),
-        Parent = button
-    })
-
-    -- Add icon if provided
-    if iconId then
-        local icon = create("ImageLabel", {
-            Name = "Icon",
-            Size = UDim2.new(0, 20, 0, 20),
-            Position = UDim2.new(0, 10, 0.5, -10),
-            BackgroundTransparency = 1,
-            Image = iconId,
-            ImageColor3 = self.theme.Text,
-            Parent = button
-        })
-    end
-
-    -- Hover effects
-    button.MouseEnter:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.2), {
-            BackgroundColor3 = Color3.fromRGB(45, 45, 52)
-        }):Play()
-    end)
-
-    button.MouseLeave:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.2), {
-            BackgroundColor3 = self.theme.Tertiary
-        }):Play()
-    end)
-
-    table.insert(self.navButtons, {
-        Name = name,
-        Button = button
-    })
-
-    return button
-end
-
-function Zynox:setupDefaultContent()
-    -- Clear existing content
-    for _, child in ipairs(self.contentFrame:GetChildren()) do
-        if child:IsA("UIBase") then
-            child:Destroy()
-        end
-    end
-
-    -- Add welcome message
-    local welcomeLabel = create("TextLabel", {
-        Name = "WelcomeLabel",
-        Size = UDim2.new(1, -40, 0, 60),
-        Position = UDim2.new(0, 20, 0, 20),
-        BackgroundTransparency = 1,
-        Text = "Welcome to Zynox",
-        TextColor3 = self.theme.Text,
-        TextSize = 24,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Font = Enum.Font.GothamBold,
-        Parent = self.contentFrame
-    })
-
-    local description = create("TextLabel", {
-        Name = "Description",
-        Size = UDim2.new(1, -40, 0, 40),
-        Position = UDim2.new(0, 20, 0, 80),
-        BackgroundTransparency = 1,
-        Text = "Select an option from the sidebar to get started",
-        TextColor3 = self.theme.TextSecondary,
-        TextSize = 16,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextWrapped = true,
-        Font = Enum.Font.Gotham,
-        Parent = self.contentFrame
-    })
-end
-
-function Zynox:setupDragging()
-    local dragging = false
-    local dragStart
-    local startPos
-
-    local function updateInput(input)
-        local delta = input.Position - dragStart
-        self.mainFrame.Position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
-        )
-    end
-
-    self.titleBar.InputBegan:Connect(function(input)
+    dragGui.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             dragStart = input.Position
-            startPos = self.mainFrame.Position
+            startPos = targetGui.Position
+
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -312,102 +205,138 @@ function Zynox:setupDragging()
         end
     end)
 
-    self.titleBar.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
-            updateInput(input)
+    dragGui.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            targetGui.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
         end
     end)
 end
 
-function Zynox:setupResize()
-    local resizeHandle = create("Frame", {
-        Name = "ResizeHandle",
-        Size = UDim2.new(0, 20, 0, 20),
-        Position = UDim2.new(1, -20, 1, -20),
-        BackgroundTransparency = 1,
-        Parent = self.mainFrame
-    })
-
-    local resizeIcon = create("ImageLabel", {
-        Name = "ResizeIcon",
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://6031068421",
-        ImageColor3 = self.theme.TextSecondary,
-        Parent = resizeHandle
-    })
-
-    local isResizing = false
-    local startPos
-    local startSize
-
-    local function updateSize(input)
-        local delta = input.Position - startPos
-        local newSize = UDim2.new(
-            startSize.X.Scale,
-            math.max(self.minSize.X.Offset, startSize.X.Offset + delta.X),
-            startSize.Y.Scale,
-            math.max(self.minSize.Y.Offset, startSize.Y.Offset + delta.Y)
-        )
-        self.mainFrame.Size = newSize
+function ZynoxUI:ClearContent()
+    for _, child in ipairs(self.contentFrame:GetChildren()) do
+        if child:IsA("GuiObject") then
+            child:Destroy()
+        end
     end
-
-    resizeHandle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            isResizing = true
-            startPos = input.Position
-            startSize = self.mainFrame.Size
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    isResizing = false
-                end
-            end)
-        end
-    end)
-
-    resizeHandle.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement and isResizing then
-            updateSize(input)
-        end
-    end)
 end
 
-function Zynox:show()
-    self.screenGui.Enabled = true
-    -- Add show animation
-    self.mainFrame.Position = UDim2.new(0.5, 0, 0.4, 0)
-    self.mainFrame.BackgroundTransparency = 1
-    TweenService:Create(self.mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-        Position = UDim2.new(0.5, -self.size.X.Offset/2, 0.5, -self.size.Y.Offset/2),
-        BackgroundTransparency = 0
-    }):Play()
+function ZynoxUI:ShowHome()
+    self:ClearContent()
+    local welcome = Instance.new("TextLabel")
+    welcome.Text = "Welcome to Zynox"
+    welcome.Size = UDim2.new(1, -40, 0, 40)
+    welcome.Position = UDim2.new(0, 20, 0, 20)
+    welcome.BackgroundTransparency = 1
+    welcome.TextColor3 = theme.Text
+    welcome.TextSize = 24
+    welcome.TextXAlignment = Enum.TextXAlignment.Left
+    welcome.Font = Enum.Font.GothamBold
+    welcome.Parent = self.contentFrame
+
+    local desc = Instance.new("TextLabel")
+    desc.Text = "Select an option from the sidebar to get started"
+    desc.Size = UDim2.new(1, -40, 0, 30)
+    desc.Position = UDim2.new(0, 20, 0, 70)
+    desc.BackgroundTransparency = 1
+    desc.TextColor3 = Color3.fromRGB(180, 180, 190)
+    desc.TextSize = 16
+    desc.TextXAlignment = Enum.TextXAlignment.Left
+    desc.Font = Enum.Font.Gotham
+    desc.Parent = self.contentFrame
 end
 
-function Zynox:hide()
-    -- Add hide animation
-    TweenService:Create(self.mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-        Position = UDim2.new(0.5, 0, 0.4, 0),
-        BackgroundTransparency = 1
-    }):Play()
-    wait(0.3)
-    self.screenGui.Enabled = false
+function ZynoxUI:ShowScripts()
+    self:ClearContent()
+    local title = Instance.new("TextLabel")
+    title.Text = "Available Scripts"
+    title.Size = UDim2.new(1, -40, 0, 40)
+    title.Position = UDim2.new(0, 20, 0, 20)
+    title.BackgroundTransparency = 1
+    title.TextColor3 = theme.Text
+    title.TextSize = 20
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Font = Enum.Font.GothamBold
+    title.Parent = self.contentFrame
+
+    local scripts = {
+        {Name = "Infinite Jump", Description = "Jump infinitely in the air"},
+        {Name = "Speed Hack", Description = "Run faster than normal"},
+        {Name = "No Clip", Description = "Walk through walls"}
+    }
+
+    for i, scriptInfo in ipairs(scripts) do
+        local button = Instance.new("TextButton")
+        button.Name = scriptInfo.Name .. "Button"
+        button.Size = UDim2.new(1, -40, 0, 40)
+        button.Position = UDim2.new(0, 20, 0, 80 + (i-1) * 50)
+        button.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+        button.BorderSizePixel = 0
+        button.Text = scriptInfo.Name
+        button.TextColor3 = theme.Text
+        button.TextSize = 14
+        button.Font = Enum.Font.Gotham
+        button.TextXAlignment = Enum.TextXAlignment.Left
+        button.TextYAlignment = Enum.TextYAlignment.Top
+        button.Parent = self.contentFrame
+
+        local desc = Instance.new("TextLabel")
+        desc.Text = scriptInfo.Description
+        desc.Size = UDim2.new(1, -10, 0, 20)
+        desc.Position = UDim2.new(0, 10, 0, 20)
+        desc.BackgroundTransparency = 1
+        desc.TextColor3 = Color3.fromRGB(180, 180, 190)
+        desc.TextSize = 12
+        desc.TextXAlignment = Enum.TextXAlignment.Left
+        desc.Font = Enum.Font.Gotham
+        desc.Parent = button
+
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 6)
+        corner.Parent = button
+
+        button.MouseEnter:Connect(function()
+            TweenService:Create(button, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+            }):Play()
+        end)
+
+        button.MouseLeave:Connect(function()
+            TweenService:Create(button, TweenInfo.new(0.2), {
+                BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+            }):Play()
+        end)
+
+        button.MouseButton1Click:Connect(function()
+            print("Executing: " .. scriptInfo.Name)
+            -- Add your script execution code here
+        end)
+    end
 end
 
-function Zynox:destroy()
-    self.screenGui:Destroy()
+function ZynoxUI:ShowSettings()
+    self:ClearContent()
+    local label = Instance.new("TextLabel")
+    label.Text = "Settings will go here."
+    label.Size = UDim2.new(1, -40, 0, 30)
+    label.Position = UDim2.new(0, 20, 0, 20)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = theme.Text
+    label.TextSize = 16
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Font = Enum.Font.Gotham
+    label.Parent = self.contentFrame
 end
 
--- Close button functionality
-function Zynox:setupCloseButton()
-    self.closeButton.MouseButton1Click:Connect(function()
-        self:hide()
-    end)
-end
-
--- Initialize
-function Zynox:init()
-    self:setupCloseButton()
-    self:show()
-end
-
-return Zynox
+return ZynoxUI
