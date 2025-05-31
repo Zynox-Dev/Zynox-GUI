@@ -1,196 +1,309 @@
--- ZynoxUI - A modern UI library for Roblox
--- Version: 3.0.2 (Debug Build)
+-- Zynox.lua
+-- Enhanced Zynox UI Library
+-- Version: 1.0.0
 
--- Debug mode
-local DEBUG = true
-local function debugPrint(...)
-    if DEBUG then
-        print("[ZynoxUI DEBUG]", ...)
-    end
-end
-
-local ZynoxUI = {
-    Version = "3.0.2"
-}
+local Zynox = {}
+Zynox.__index = Zynox
 
 -- Services
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
+
+-- Constants
+local DEFAULT_THEME = {
+    Primary = Color3.fromRGB(30, 30, 36),
+    Secondary = Color3.fromRGB(25, 25, 30),
+    Tertiary = Color3.fromRGB(35, 35, 42),
+    Accent = Color3.fromRGB(0, 120, 215),
+    Text = Color3.fromRGB(220, 220, 220),
+    TextSecondary = Color3.fromRGB(180, 180, 190),
+    Success = Color3.fromRGB(76, 209, 55),
+    Warning = Color3.fromRGB(255, 193, 7),
+    Error = Color3.fromRGB(255, 71, 87)
+}
 
 -- Utility Functions
 local function create(instanceType, properties)
     local instance = Instance.new(instanceType)
-    for property, value in pairs(properties or {}) do
+    for property, value in pairs(properties) do
         instance[property] = value
     end
     return instance
 end
 
-local function applyCorner(instance, radius)
-    local corner = create("UICorner")
-    corner.CornerRadius = radius or UDim.new(0, 8)
-    corner.Parent = instance
-    return corner
-end
-
-local function createGlowEffect(parent, color, transparency, size)
-    local glow = create("ImageLabel", {
-        Name = "Glow",
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://4996891970",
-        ImageColor3 = color or Color3.fromRGB(0, 170, 255),
-        ImageTransparency = transparency or 0.8,
-        ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(20, 20, 280, 280),
-        Size = size or UDim2.new(1, 40, 1, 40),
-        Position = UDim2.new(0, -20, 0, -20),
-        ZIndex = -1,
-        Parent = parent
+local function createRoundedFrame(properties)
+    local frame = create("Frame", properties)
+    local corner = create("UICorner", {
+        CornerRadius = UDim.new(0, 8),
+        Parent = frame
     })
-    return glow
+    return frame, corner
 end
 
--- Window Class
-local Window = {}
-Window.__index = Window
-
-function ZynoxUI:CreateWindow(title, options)
-    debugPrint("Creating new window with title:", title)
+-- Zynox Class
+function Zynox.new(options)
     options = options or {}
-    local self = setmetatable({}, Window)
-    debugPrint("Window options:", options)
+    local self = setmetatable({}, Zynox)
     
-    self.Elements = {}
-    self.Connections = {}
-    self.ThemeName = options.Theme or "Dark"
-    self.Theme = Zynox.Theme[self.ThemeName] or Zynox.Theme["Dark"]
+    -- Initialize properties
+    self.theme = options.theme or DEFAULT_THEME
+    self.size = options.size or UDim2.new(0, 720, 0, 480)
+    self.position = options.position or UDim2.new(0.5, -360, 0.5, -240)
+    self.title = options.title or "Zynox"
+    self.minSize = options.minSize or UDim2.new(0, 400, 0, 300)
     
-    -- Create main UI container
-    self.Elements.ScreenGui = create("ScreenGui", {
+    -- Create UI
+    self:createUI()
+    self:setupDragging()
+    self:setupResize()
+    
+    return self
+end
+
+function Zynox:createUI()
+    -- Main ScreenGui
+    self.screenGui = create("ScreenGui", {
         Name = "ZynoxUI",
-        ResetOnSpawn = false,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+        ResetOnSpawn = false,
         Parent = CoreGui
     })
-    debugPrint("Created ScreenGui")
-    
-    -- Create shadow effect
-    self.Elements.Shadow = create("ImageLabel", {
-        Name = "Shadow",
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0.5, -260, 0.5, -210),
-        Size = UDim2.new(0, 520, 0, 440),
-        Image = "rbxassetid://1316045217",
-        ImageColor3 = Color3.new(0, 0, 0),
-        ImageTransparency = 0.9,
-        ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(10, 10, 118, 118),
-        ZIndex = 0,
-        Parent = self.Elements.ScreenGui
-    })
-    debugPrint("Created Shadow")
-    
-    -- Create main frame
-    self.Elements.MainFrame = create("Frame", {
-        Size = UDim2.new(0, 500, 0, 400),
-        Position = UDim2.new(0.5, -250, 0.5, -200),
-        BackgroundColor3 = self.Theme.Background,
+
+    -- Main Container
+    self.mainFrame, _ = createRoundedFrame({
+        Name = "MainFrame",
+        Size = self.size,
+        Position = self.position,
+        BackgroundColor3 = self.theme.Primary,
         BorderSizePixel = 0,
-        ZIndex = 1
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        ClipsDescendants = true,
+        Parent = self.screenGui
     })
-    debugPrint("Created MainFrame")
-    
-    -- Add glow effect
-    createGlowEffect(self.Elements.MainFrame, self.Theme.Glow, 0.9)
-    applyCorner(self.Elements.MainFrame)
-    
-    -- Create top bar
-    self.Elements.Topbar = create("Frame", {
+
+    -- Title Bar
+    self.titleBar = createRoundedFrame({
+        Name = "TitleBar",
         Size = UDim2.new(1, 0, 0, 40),
-        BackgroundColor3 = self.Theme.Topbar,
-        BorderSizePixel = 0,
-        Parent = self.Elements.MainFrame
+        Position = UDim2.new(0, 0, 0, 0),
+        BackgroundColor3 = self.theme.Secondary,
+        Parent = self.mainFrame
     })
-    debugPrint("Created Topbar")
-    
-    applyCorner(self.Elements.Topbar, UDim.new(0, 8, 0, 0))
-    
-    -- Add title
-    self.Elements.Title = create("TextLabel", {
-        Size = UDim2.new(1, -20, 1, 0),
-        Position = UDim2.new(0, 10, 0, 0),
+    self.titleBar.UICorner.CornerRadius = UDim.new(0, 8, 0, 0)
+
+    -- Title Text
+    self.titleText = create("TextLabel", {
+        Name = "TitleText",
+        Size = UDim2.new(1, -100, 1, 0),
+        Position = UDim2.new(0, 15, 0, 0),
         BackgroundTransparency = 1,
-        Text = title or "ZynoxUI",
-        TextColor3 = self.Theme.Text,
-        TextSize = 22,
+        Text = self.title,
+        TextColor3 = self.theme.Text,
+        TextSize = 18,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Font = Enum.Font.GothamSemibold,
+        Parent = self.titleBar
+    })
+
+    -- Close Button
+    self.closeButton = create("TextButton", {
+        Name = "CloseButton",
+        Size = UDim2.new(0, 40, 0, 40),
+        Position = UDim2.new(1, -40, 0, 0),
+        BackgroundTransparency = 1,
+        Text = "×",
+        TextColor3 = self.theme.Text,
+        TextSize = 28,
+        Font = Enum.Font.GothamBold,
+        Parent = self.titleBar
+    })
+
+    -- Sidebar
+    self:createSidebar()
+    
+    -- Content Frame
+    self.contentFrame = create("Frame", {
+        Name = "ContentFrame",
+        Size = UDim2.new(1, -180, 1, -50),
+        Position = UDim2.new(0, 160, 0, 50),
+        BackgroundColor3 = self.theme.Primary,
+        BorderSizePixel = 0,
+        Parent = self.mainFrame
+    })
+
+    -- Initialize default content
+    self:setupDefaultContent()
+end
+
+function Zynox:createSidebar()
+    self.sidebar = create("Frame", {
+        Name = "Sidebar",
+        Size = UDim2.new(0, 160, 1, -40),
+        Position = UDim2.new(0, 0, 0, 40),
+        BackgroundColor3 = self.theme.Secondary,
+        BorderSizePixel = 0,
+        Parent = self.mainFrame
+    })
+
+    -- User Info
+    self.userInfo = createRoundedFrame({
+        Name = "UserInfo",
+        Size = UDim2.new(1, -20, 0, 80),
+        Position = UDim2.new(0, 10, 0, 10),
+        BackgroundColor3 = self.theme.Tertiary,
+        Parent = self.sidebar
+    })
+
+    local player = Players.LocalPlayer
+    local displayName = player.DisplayName ~= player.Name and player.DisplayName or player.Name
+    self.userName = create("TextLabel", {
+        Name = "UserName",
+        Size = UDim2.new(1, -20, 0, 40),
+        Position = UDim2.new(0, 10, 0, 20),
+        BackgroundTransparency = 1,
+        Text = displayName,
+        TextColor3 = self.theme.Text,
+        TextSize = 16,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        Font = Enum.Font.GothamSemibold,
+        Parent = self.userInfo
+    })
+
+    self.userId = create("TextLabel", {
+        Name = "UserId",
+        Size = UDim2.new(1, -20, 0, 20),
+        Position = UDim2.new(0, 10, 0, 50),
+        BackgroundTransparency = 1,
+        Text = "ID: " .. tostring(player.UserId),
+        TextColor3 = self.theme.TextSecondary,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Font = Enum.Font.Gotham,
+        Parent = self.userInfo
+    })
+
+    -- Navigation
+    self.navButtons = {}
+    self:addNavButton("Home", 1, "rbxassetid://6031075931")
+    self:addNavButton("Scripts", 2, "rbxassetid://6031075927")
+    self:addNavButton("Settings", 3, "rbxassetid://6031075938")
+end
+
+function Zynox:addNavButton(name, position, iconId)
+    local button = create("TextButton", {
+        Name = name .. "Button",
+        Size = UDim2.new(1, -20, 0, 36),
+        Position = UDim2.new(0, 10, 0, 110 + (position - 1) * 46),
+        BackgroundColor3 = self.theme.Tertiary,
+        BorderSizePixel = 0,
+        Text = "   " .. name,
+        TextColor3 = self.theme.Text,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Font = Enum.Font.Gotham,
+        Parent = self.sidebar
+    })
+
+    local corner = create("UICorner", {
+        CornerRadius = UDim.new(0, 6),
+        Parent = button
+    })
+
+    -- Add icon if provided
+    if iconId then
+        local icon = create("ImageLabel", {
+            Name = "Icon",
+            Size = UDim2.new(0, 20, 0, 20),
+            Position = UDim2.new(0, 10, 0.5, -10),
+            BackgroundTransparency = 1,
+            Image = iconId,
+            ImageColor3 = self.theme.Text,
+            Parent = button
+        })
+    end
+
+    -- Hover effects
+    button.MouseEnter:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+        }):Play()
+    end)
+
+    button.MouseLeave:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.2), {
+            BackgroundColor3 = self.theme.Tertiary
+        }):Play()
+    end)
+
+    table.insert(self.navButtons, {
+        Name = name,
+        Button = button
+    })
+
+    return button
+end
+
+function Zynox:setupDefaultContent()
+    -- Clear existing content
+    for _, child in ipairs(self.contentFrame:GetChildren()) do
+        if child:IsA("UIBase") then
+            child:Destroy()
+        end
+    end
+
+    -- Add welcome message
+    local welcomeLabel = create("TextLabel", {
+        Name = "WelcomeLabel",
+        Size = UDim2.new(1, -40, 0, 60),
+        Position = UDim2.new(0, 20, 0, 20),
+        BackgroundTransparency = 1,
+        Text = "Welcome to Zynox",
+        TextColor3 = self.theme.Text,
+        TextSize = 24,
         TextXAlignment = Enum.TextXAlignment.Left,
         Font = Enum.Font.GothamBold,
-        Parent = self.Elements.Topbar
+        Parent = self.contentFrame
     })
-    debugPrint("Created Title")
-    
-    -- Create content area
-    self.Elements.Content = create("Frame", {
-        Size = UDim2.new(1, -40, 1, -70),
-        Position = UDim2.new(0, 20, 0, 60),
+
+    local description = create("TextLabel", {
+        Name = "Description",
+        Size = UDim2.new(1, -40, 0, 40),
+        Position = UDim2.new(0, 20, 0, 80),
         BackgroundTransparency = 1,
-        Parent = self.Elements.MainFrame
+        Text = "Select an option from the sidebar to get started",
+        TextColor3 = self.theme.TextSecondary,
+        TextSize = 16,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextWrapped = true,
+        Font = Enum.Font.Gotham,
+        Parent = self.contentFrame
     })
-    debugPrint("Created Content")
-    
-    -- Add scrolling frame
-    self.Elements.ScrollFrame = create("ScrollingFrame", {
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
-        ScrollBarThickness = 4,
-        ScrollBarImageColor3 = self.Theme.Accent,
-        ScrollBarImageTransparency = 0.7,
-        Parent = self.Elements.Content
-    })
-    debugPrint("Created ScrollFrame")
-    
-    -- Add list layout
-    self.Elements.ListLayout = create("UIListLayout", {
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 12),
-        Parent = self.Elements.ScrollFrame
-    })
-    debugPrint("Created ListLayout")
-    
-    -- Update scroll frame size when content changes
-    self.Elements.ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        self.Elements.ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, self.Elements.ListLayout.AbsoluteContentSize.Y + 20)
-    end)
-    
-    -- Make window draggable
+end
+
+function Zynox:setupDragging()
     local dragging = false
-    local dragStart, startPos
-    
-    local function updateDrag(input)
+    local dragStart
+    local startPos
+
+    local function updateInput(input)
         local delta = input.Position - dragStart
-        local newPos = UDim2.new(
+        self.mainFrame.Position = UDim2.new(
             startPos.X.Scale,
             startPos.X.Offset + delta.X,
             startPos.Y.Scale,
             startPos.Y.Offset + delta.Y
         )
-        self.Elements.MainFrame.Position = newPos
-        -- Update shadow position with proper offset from main frame
-        self.Elements.Shadow.Position = UDim2.new(
-            newPos.X.Scale,
-            newPos.X.Offset - 5,  -- Reduced from 10 to 5 for better visual balance
-            newPos.Y.Scale,
-            newPos.Y.Offset - 5   -- Reduced from 10 to 5 for better visual balance
-        )
     end
-    
-    self.Elements.Topbar.InputBegan:Connect(function(input)
+
+    self.titleBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             dragStart = input.Position
-            startPos = self.Elements.MainFrame.Position
+            startPos = self.mainFrame.Position
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -198,326 +311,103 @@ function ZynoxUI:CreateWindow(title, options)
             end)
         end
     end)
-    
-    self.Elements.Topbar.InputChanged:Connect(function(input)
+
+    self.titleBar.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
-            updateDrag(input)
+            updateInput(input)
         end
     end)
-    
-    return self
 end
 
--- Button Creation
-function Window:CreateButton(text, callback)
-    debugPrint("Creating button with text:", text)
-    local buttonContainer = create("Frame", {
-        Size = UDim2.new(1, 0, 0, 50),
+function Zynox:setupResize()
+    local resizeHandle = create("Frame", {
+        Name = "ResizeHandle",
+        Size = UDim2.new(0, 20, 0, 20),
+        Position = UDim2.new(1, -20, 1, -20),
         BackgroundTransparency = 1,
-        Parent = self.Elements.ScrollFrame
-    })
-    
-    local button = create("TextButton", {
-        Size = UDim2.new(1, 0, 0, 44),
-        Position = UDim2.new(0, 0, 0, 3),
-        BackgroundColor3 = self.Theme.Button,
-        Text = text or "Button",
-        TextColor3 = self.Theme.Text,
-        TextSize = 16,
-        Font = Enum.Font.GothamSemibold,
-        AutoButtonColor = false,
-        Parent = buttonContainer
-    })
-    
-    -- Add glow effect
-    local glow = createGlowEffect(button, self.Theme.Glow, 0.95, UDim2.new(1, 10, 1, 10))
-    glow.Position = UDim2.new(0, -5, 0, -5)
-    glow.ZIndex = 0
-    
-    applyCorner(button)
-    
-    -- Hover effects
-    local originalColor = button.BackgroundColor3
-    local hoverColor = self.Theme.ButtonHover
-    
-    button.MouseEnter:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.2), {
-            BackgroundColor3 = hoverColor,
-            Position = UDim2.new(0, 0, 0, 0),
-            Size = UDim2.new(1, 0, 0, 50)
-        }):Play()
-        TweenService:Create(glow, TweenInfo.new(0.2), {
-            ImageTransparency = 0.8
-        }):Play()
-    end)
-    
-    button.MouseLeave:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.2), {
-            BackgroundColor3 = originalColor,
-            Position = UDim2.new(0, 0, 0, 3),
-            Size = UDim2.new(1, 0, 0, 44)
-        }):Play()
-        TweenService:Create(glow, TweenInfo.new(0.2), {
-            ImageTransparency = 0.95
-        }):Play()
-    end)
-    
-    -- Click handler
-    if type(callback) == "function" then
-        button.MouseButton1Click:Connect(function()
-            debugPrint("Button clicked:", text)
-            TweenService:Create(button, TweenInfo.new(0.1), {
-                Size = UDim2.new(0.95, 0, 0, 42)
-            }):Play()
-            task.wait(0.1)
-            TweenService:Create(button, TweenInfo.new(0.1), {
-                Size = UDim2.new(1, 0, 0, 44)
-            }):Play()
-            if callback then
-                debugPrint("Executing button callback")
-                local success, err = pcall(callback)
-                if not success then
-                    debugPrint("Button callback error:", err)
-                end
-            end
-        end)
-    end
-    
-    return button
-end
-
--- Toggle Creation
-function Window:CreateToggle(text, defaultState, callback)
-    debugPrint("Creating toggle with text:", text, "Default state:", defaultState)
-    local state = defaultState or false
-
-    local toggleContainer = create("Frame", {
-        Size = UDim2.new(1, 0, 0, 50),
-        BackgroundTransparency = 1,
-        Parent = self.Elements.ScrollFrame
+        Parent = self.mainFrame
     })
 
-    local toggleFrame = create("TextButton", {
-        Size = UDim2.new(1, 0, 0, 44),
-        Position = UDim2.new(0, 0, 0, 3),
-        BackgroundColor3 = self.Theme.Toggle,
-        Text = text or "Toggle",
-        TextColor3 = self.Theme.Text,
-        TextSize = 16,
-        Font = Enum.Font.Gotham,
-        AutoButtonColor = false,
-        Parent = toggleContainer
-    })
-
-    local toggleGlow = createGlowEffect(toggleFrame, self.Theme.Glow, 0.95)
-    applyCorner(toggleFrame)
-
-    toggleFrame.MouseButton1Click:Connect(function()
-        state = not state
-        debugPrint("Toggle state changed to:", state, "for:", text)
-        local targetColor = state and self.Theme.ToggleAccent or self.Theme.Toggle
-        local targetTransparency = state and 0.8 or 0.95
-        TweenService:Create(toggleFrame, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
-        TweenService:Create(toggleGlow, TweenInfo.new(0.2), {ImageTransparency = targetTransparency}):Play()
-        if callback then
-            debugPrint("Executing toggle callback with state:", state)
-            local success, err = pcall(callback, state)
-            if not success then
-                debugPrint("Toggle callback error:", err)
-            end
-        end
-    end)
-
-    return {
-        SetState = function(value)
-            if type(value) == "boolean" and value ~= state then
-                state = value
-                local targetColor = state and self.Theme.ToggleAccent or self.Theme.Toggle
-                local targetTransparency = state and 0.8 or 0.95
-                TweenService:Create(toggleFrame, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
-                TweenService:Create(toggleGlow, TweenInfo.new(0.2), {ImageTransparency = targetTransparency}):Play()
-                if callback then
-                    callback(state)
-                end
-            end
-        end,
-        GetState = function()
-            return state
-        end
-    }
-end
-
--- Tab System
-function Window:CreateTabSystem()
-    debugPrint("Creating tab system")
-    local tabSystem = {
-        Tabs = {},
-        CurrentTab = nil,
-        Elements = {}
-    }
-    
-    -- Create tab container
-    tabSystem.Elements.Container = create("Frame", {
-        Size = UDim2.new(1, 0, 0, 40),
-        BackgroundTransparency = 1,
-        Parent = self.Elements.ScrollFrame
-    })
-    
-    -- Add tab list layout
-    tabSystem.Elements.ListLayout = create("UIListLayout", {
-        FillDirection = Enum.FillDirection.Horizontal,
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 5),
-        Parent = tabSystem.Elements.Container
-    })
-    
-    -- Add padding
-    tabSystem.Elements.Padding = create("UIPadding", {
-        PaddingLeft = UDim.new(0, 5),
-        PaddingRight = UDim.new(0, 5),
-        Parent = tabSystem.Elements.Container
-    })
-    
-    -- Create content container
-    tabSystem.Elements.Content = create("Frame", {
-        Size = UDim2.new(1, 0, 1, -50),
-        Position = UDim2.new(0, 0, 0, 50),
-        BackgroundTransparency = 1,
-        Parent = self.Elements.ScrollFrame
-    })
-    
-    -- Add scroll frame for tab content
-    tabSystem.Elements.ScrollFrame = create("ScrollingFrame", {
+    local resizeIcon = create("ImageLabel", {
+        Name = "ResizeIcon",
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
-        ScrollBarThickness = 4,
-        ScrollBarImageColor3 = self.Theme.Accent,
-        ScrollBarImageTransparency = 0.7,
-        Parent = tabSystem.Elements.Content
+        Image = "rbxassetid://6031068421",
+        ImageColor3 = self.theme.TextSecondary,
+        Parent = resizeHandle
     })
-    
-    -- Add layout for tab content
-    tabSystem.Elements.ContentLayout = create("UIListLayout", {
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 12),
-        Parent = tabSystem.Elements.ScrollFrame
-    })
-    
-    -- Update scroll frame size when content changes
-    tabSystem.Elements.ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        tabSystem.Elements.ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, tabSystem.Elements.ContentLayout.AbsoluteContentSize.Y + 20)
-    end)
-    
-    -- Method to add a new tab
-    function tabSystem:AddTab(name)
-        debugPrint("Adding new tab:", name)
-        local tab = {
-            Name = name or "Tab " .. (#self.Tabs + 1),
-            Elements = {}
-        }
-        
-        -- Create tab button
-        tab.Elements.Button = create("TextButton", {
-            Size = UDim2.new(0, 100, 1, 0),
-            BackgroundColor3 = self.Theme.Button,
-            Text = tab.Name,
-            TextColor3 = self.Theme.Text,
-            TextSize = 14,
-            Font = Enum.Font.GothamSemibold,
-            AutoButtonColor = false,
-            Parent = self.Elements.Container
-        })
-        
-        applyCorner(tab.Elements.Button, UDim.new(0, 6))
-        
-        -- Create tab content
-        tab.Content = create("Frame", {
-            Size = UDim2.new(1, 0, 1, 0),
-            BackgroundTransparency = 1,
-            Visible = false,
-            Parent = tabSystem.Elements.Content
-        })
-        
-        -- Add glow effect
-        local glow = createGlowEffect(tab.Elements.Button, self.Theme.Glow, 0.95)
-        glow.ZIndex = -1
-        
-        -- Tab selection logic
-        local function selectTab()
-            -- Deselect all tabs
-            for _, otherTab in ipairs(self.Tabs) do
-                if otherTab ~= tab then
-                    TweenService:Create(otherTab.Elements.Button, TweenInfo.new(0.2), {
-                        BackgroundColor3 = self.Theme.Button,
-                        TextColor3 = self.Theme.Text
-                    }):Play()
-                    otherTab.Elements.Content.Visible = false
+
+    local isResizing = false
+    local startPos
+    local startSize
+
+    local function updateSize(input)
+        local delta = input.Position - startPos
+        local newSize = UDim2.new(
+            startSize.X.Scale,
+            math.max(self.minSize.X.Offset, startSize.X.Offset + delta.X),
+            startSize.Y.Scale,
+            math.max(self.minSize.Y.Offset, startSize.Y.Offset + delta.Y)
+        )
+        self.mainFrame.Size = newSize
+    end
+
+    resizeHandle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isResizing = true
+            startPos = input.Position
+            startSize = self.mainFrame.Size
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    isResizing = false
                 end
-            end
-            
-            -- Select this tab
-            TweenService:Create(tab.Elements.Button, TweenInfo.new(0.2), {
-                BackgroundColor3 = self.Theme.Accent,
-                TextColor3 = Color3.new(1, 1, 1)
-            }):Play()
-            
-            tab.Elements.Content.Visible = true
-            self.CurrentTab = tab
+            end)
         end
-        
-        -- Button interactions
-        tab.Elements.Button.MouseEnter:Connect(function()
-            if self.CurrentTab ~= tab then
-                TweenService:Create(tab.Elements.Button, TweenInfo.new(0.2), {
-                    BackgroundColor3 = self.Theme.ButtonHover
-                }):Play()
-            end
-        end)
-        
-        tab.Elements.Button.MouseLeave:Connect(function()
-            if self.CurrentTab ~= tab then
-                TweenService:Create(tab.Elements.Button, TweenInfo.new(0.2), {
-                    BackgroundColor3 = self.Theme.Button
-                }):Play()
-            end
-        end)
-        
-        tab.Elements.Button.MouseButton1Click:Connect(selectTab)
-        
-        -- Add tab to the list
-        table.insert(self.Tabs, tab)
-        
-        -- Select first tab
-        if #self.Tabs == 1 then
-            selectTab()
+    end)
+
+    resizeHandle.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement and isResizing then
+            updateSize(input)
         end
-        
-        return {
-            Content = tab.Elements.Content,
-            Button = tab.Elements.Button
-        }
-    end
-    
-    -- Add some spacing after the tab system
-    local spacer = create("Frame", {
-        Size = UDim2.new(1, 0, 0, 10),
-        BackgroundTransparency = 1,
-        Parent = self.Elements.ScrollFrame
-    })
-    
-    return tabSystem
+    end)
 end
 
--- Destroy method
-function Window:Destroy()
-    debugPrint("Destroying window and all elements")
-    if self.Elements.ScreenGui then
-        self.Elements.ScreenGui:Destroy()
-        debugPrint("ScreenGui destroyed")
-    end
+function Zynox:show()
+    self.screenGui.Enabled = true
+    -- Add show animation
+    self.mainFrame.Position = UDim2.new(0.5, 0, 0.4, 0)
+    self.mainFrame.BackgroundTransparency = 1
+    TweenService:Create(self.mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+        Position = UDim2.new(0.5, -self.size.X.Offset/2, 0.5, -self.size.Y.Offset/2),
+        BackgroundTransparency = 0
+    }):Play()
 end
 
--- Set up metatable
-ZynoxUI.__index = ZynoxUI
+function Zynox:hide()
+    -- Add hide animation
+    TweenService:Create(self.mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+        Position = UDim2.new(0.5, 0, 0.4, 0),
+        BackgroundTransparency = 1
+    }):Play()
+    wait(0.3)
+    self.screenGui.Enabled = false
+end
 
-return ZynoxUI
+function Zynox:destroy()
+    self.screenGui:Destroy()
+end
+
+-- Close button functionality
+function Zynox:setupCloseButton()
+    self.closeButton.MouseButton1Click:Connect(function()
+        self:hide()
+    end)
+end
+
+-- Initialize
+function Zynox:init()
+    self:setupCloseButton()
+    self:show()
+end
+
+return Zynox
