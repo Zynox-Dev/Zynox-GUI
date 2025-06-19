@@ -64,6 +64,8 @@ function ZynoxUI:CreateMainWindow(title)
         end
     end)
 
+    window.Parent = CoreGui  -- Ensure the window is parented to PlayerGui for visibility
+
     return window
 end
 
