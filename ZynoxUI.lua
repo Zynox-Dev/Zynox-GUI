@@ -98,9 +98,9 @@ local Animations = {
         Elastic = Enum.EasingStyle.Elastic,
         Sharp = Enum.EasingStyle.Quad,
         Sine = Enum.EasingStyle.Sine,
-        Linear = Enum.EasingStyle.Linear,  -- Fixed: Using Linear instead of Expo
-        Cubic = Enum.EasingStyle.Cubic,   -- Added valid alternative
-        Quart = Enum.EasingStyle.Quart    -- Added valid alternative
+        Linear = Enum.EasingStyle.Linear,
+        Cubic = Enum.EasingStyle.Cubic,
+        Quart = Enum.EasingStyle.Quart
     },
     ActiveTweens = {},
     TweenPool = {}
@@ -471,7 +471,6 @@ function Utils.CreateParticles(parent, config)
             
             local moveX = math.random(-100, 100)
             local moveY = math.random(-100, 100)
-            -- FIXED: Using Linear instead of Expo
             local particleTween = Utils.CreateTween(particle, {
                 Position = UDim2.new(
                     particle.Position.X.Scale,
@@ -2398,21 +2397,23 @@ end
 -- Initialize settings on load
 ZynoxClient:LoadSettings()
 
--- Cleanup on game shutdown
-game:BindToClose(function()
-    ZynoxClient:SaveSettings()
-    
-    -- Cleanup all windows
-    for _, window in ipairs(ZynoxClient.Windows) do
-        if window.Destroy then
-            window:Destroy()
+-- Client-side cleanup when player leaves (FIXED - removed BindToClose)
+Players.PlayerRemoving:Connect(function(leavingPlayer)
+    if leavingPlayer == player then
+        ZynoxClient:SaveSettings()
+        
+        -- Cleanup all windows
+        for _, window in ipairs(ZynoxClient.Windows) do
+            if window.Destroy then
+                window:Destroy()
+            end
         end
-    end
-    
-    -- Cancel all active tweens
-    for _, tween in ipairs(Animations.ActiveTweens) do
-        if tween then
-            tween:Cancel()
+        
+        -- Cancel all active tweens
+        for _, tween in ipairs(Animations.ActiveTweens) do
+            if tween then
+                tween:Cancel()
+            end
         end
     end
 end)
