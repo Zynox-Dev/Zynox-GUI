@@ -1,6 +1,3 @@
--- Zynox Client Library v2.0 Enhanced
--- Loadstring Compatible with Advanced Animations
-
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
