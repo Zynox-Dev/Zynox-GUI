@@ -6,9 +6,9 @@ local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local SoundService = game:GetService("SoundService")
 local StarterGui = game:GetService("StarterGui")
+local CoreGui = game:GetService("CoreGui")
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
 
 -- Enhanced Main Library with complete functionality
 local ZynoxClient = {
@@ -83,7 +83,7 @@ function ErrorHandler.ValidateConfig(config, required, optional)
     return true, config
 end
 
--- FIXED Animation Settings with valid Roblox easing styles only
+-- Animation Settings with valid Roblox easing styles only
 local Animations = {
     Speed = {
         Lightning = 0.08,
@@ -308,24 +308,24 @@ function Utils.AddGradient(object, colors, rotation, transparency)
     local success, gradient = ErrorHandler.SafeCall(function()
         local gradient = Instance.new("UIGradient")
         
-        if type(colors) == "table" and #colors > 2 then
-            local colorSequence = {}
-            for i, colorData in ipairs(colors) do
-                if colorData.Color then
+        if type(colors) == "table" and #colors >= 2 then
+            if colors[1].Color then
+                -- Multi-color gradient
+                local colorSequence = {}
+                for i, colorData in ipairs(colors) do
                     table.insert(colorSequence, ColorSequenceKeypoint.new(
                         colorData.Time or (i-1)/(#colors-1), 
                         colorData.Color
                     ))
                 end
-            end
-            if #colorSequence > 0 then
                 gradient.Color = ColorSequence.new(colorSequence)
+            else
+                -- Simple two-color gradient
+                gradient.Color = ColorSequence.new{
+                    ColorSequenceKeypoint.new(0, colors[1]),
+                    ColorSequenceKeypoint.new(1, colors[2])
+                }
             end
-        elseif type(colors) == "table" and colors[1] and colors[2] then
-            gradient.Color = ColorSequence.new{
-                ColorSequenceKeypoint.new(0, colors[1]),
-                ColorSequenceKeypoint.new(1, colors[2])
-            }
         elseif typeof(colors) == "Color3" then
             gradient.Color = ColorSequence.new(colors)
         end
@@ -350,21 +350,20 @@ function Utils.AddGlow(object, color, size, intensity)
     end
     
     local success, glow = ErrorHandler.SafeCall(function()
-        local glow = Instance.new("ImageLabel")
+        local glow = Instance.new("Frame")
         glow.Name = "Glow"
         glow.Size = UDim2.new(1, size or 20, 1, size or 20)
         glow.Position = UDim2.new(0, -(size or 20)/2, 0, -(size or 20)/2)
-        glow.BackgroundTransparency = 1
-        glow.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
-        glow.ImageColor3 = color or ZynoxClient:GetTheme().Primary
-        glow.ImageTransparency = intensity or 0.8
+        glow.BackgroundColor3 = color or ZynoxClient:GetTheme().Primary
+        glow.BackgroundTransparency = intensity or 0.8
         glow.ZIndex = object.ZIndex - 1
         glow.Parent = object.Parent
+        Utils.AddCorners(glow, (size or 20)/2)
         
         -- Add pulsing glow animation with cleanup
         if ZynoxClient.Settings.AnimationsEnabled then
             local glowPulse = Utils.CreateTween(glow, {
-                ImageTransparency = (intensity or 0.8) - 0.2,
+                BackgroundTransparency = (intensity or 0.8) - 0.2,
                 Size = UDim2.new(1, (size or 20) + 5, 1, (size or 20) + 5)
             }, 2, Animations.Easing.Sine, Enum.EasingDirection.InOut, 0, -1, true)
             
@@ -656,7 +655,7 @@ function ZynoxClient:CreateWelcomeMessage(messageType, customConfig)
         welcomeGui.Name = "ZynoxWelcome_" .. tick()
         welcomeGui.ResetOnSpawn = false
         welcomeGui.DisplayOrder = 300
-        welcomeGui.Parent = playerGui
+        welcomeGui.Parent = CoreGui
         
         -- Background overlay with blur effect
         local overlay = Instance.new("Frame")
@@ -982,7 +981,7 @@ function ZynoxClient:CreateNotification(config)
         notificationGui.Name = "ZynoxNotification_" .. tick()
         notificationGui.ResetOnSpawn = false
         notificationGui.DisplayOrder = 200
-        notificationGui.Parent = playerGui
+        notificationGui.Parent = CoreGui
         
         local notification = Instance.new("Frame")
         notification.Size = UDim2.new(0, 380, 0, 90)
@@ -1175,11 +1174,12 @@ function ZynoxClient:CreateWindow(config)
             Visible = true,
             Elements = {},
             Connections = {},
-            Config = validatedConfig
+            Config = validatedConfig,
+            IsMinimized = false
         }
         
         -- Destroy existing window if exists
-        local existing = playerGui:FindFirstChild("ZynoxClient_" .. Window.Name)
+        local existing = CoreGui:FindFirstChild("ZynoxClient_" .. Window.Name)
         if existing then
             existing:Destroy()
         end
@@ -1191,9 +1191,9 @@ function ZynoxClient:CreateWindow(config)
         screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         screenGui.IgnoreGuiInset = true
         screenGui.DisplayOrder = 100
-        screenGui.Parent = playerGui
+        screenGui.Parent = CoreGui
         
-        -- Enhanced background blur with animated particles
+        -- Enhanced background blur
         local blurFrame = Instance.new("Frame")
         blurFrame.Name = "BlurBackground"
         blurFrame.Size = UDim2.new(1, 0, 1, 0)
@@ -1492,7 +1492,7 @@ function ZynoxClient:CreateWindow(config)
         local startPos = nil
         
         local dragConnection1 = header.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if input.UserInputType == Enum.UserInputType.MouseButton1 and not Window.IsMinimized then
                 dragging = true
                 dragStart = input.Position
                 startPos = mainContainer.Position
@@ -1577,10 +1577,22 @@ function ZynoxClient:CreateWindow(config)
         minimizeBtn.MouseButton1Click:Connect(function()
             SoundSystem.PlaySound("Click", 0.3)
             Utils.CreateRipple(minimizeBtn, minimizeBtn.AbsoluteSize.X/2, minimizeBtn.AbsoluteSize.Y/2)
-            Window.Visible = not Window.Visible
-            local targetSize = Window.Visible and UDim2.new(0, validatedConfig.Size[1], 0, validatedConfig.Size[2]) or UDim2.new(0, validatedConfig.Size[1], 0, 80)
-            local tween = Utils.CreateTween(mainContainer, {Size = targetSize}, 0.3)
-            if tween then tween:Play() end
+            
+            Window.IsMinimized = not Window.IsMinimized
+            
+            if Window.IsMinimized then
+                -- Minimize window
+                local targetSize = UDim2.new(0, validatedConfig.Size[1], 0, 80)
+                local tween = Utils.CreateTween(mainContainer, {Size = targetSize}, 0.3)
+                if tween then tween:Play() end
+                minimizeBtn.Text = "+"
+            else
+                -- Restore window
+                local targetSize = UDim2.new(0, validatedConfig.Size[1], 0, validatedConfig.Size[2])
+                local tween = Utils.CreateTween(mainContainer, {Size = targetSize}, 0.3)
+                if tween then tween:Play() end
+                minimizeBtn.Text = "−"
+            end
         end)
         
         settingsBtn.MouseButton1Click:Connect(function()
@@ -1711,13 +1723,16 @@ function ZynoxClient:CreateWindow(config)
                     
                     local btn = tabContainer:FindFirstChild("TabButton_" .. tab.Name)
                     if btn then
-                        local iconLabel = btn:FindFirstChild("TextLabel")
-                        local textLabel = btn:FindFirstChildOfClass("TextLabel")
-                        if iconLabel then iconLabel.TextColor3 = ZynoxClient:GetTheme().TextDim end
-                        if textLabel and textLabel ~= iconLabel then 
-                            textLabel.TextColor3 = ZynoxClient:GetTheme().TextDim 
+                        local btnIcon = btn:FindFirstChild("TextLabel")
+                        local btnLabel = btn:GetChildren()
+                        for _, child in ipairs(btnLabel) do
+                            if child:IsA("TextLabel") and child ~= btnIcon then
+                                child.TextColor3 = ZynoxClient:GetTheme().TextDim
+                                break
+                            end
                         end
-                        Utils.CreateTween(btn, {BackgroundColor3 = ZynoxClient:GetTheme().SurfaceLight}):Play()
+                        if btnIcon then btnIcon.TextColor3 = ZynoxClient:GetTheme().TextDim end
+                        Utils.CreateTween(btn, {BackgroundColor3 = ZynoxClient:GetTheme().SurfaceLight}, 0.2):Play()
                     end
                 end
                 
@@ -1728,7 +1743,7 @@ function ZynoxClient:CreateWindow(config)
                 
                 tabIcon.TextColor3 = ZynoxClient:GetTheme().Accent
                 tabLabel.TextColor3 = ZynoxClient:GetTheme().Text
-                Utils.CreateTween(tabButton, {BackgroundColor3 = ZynoxClient:GetTheme().Primary}):Play()
+                Utils.CreateTween(tabButton, {BackgroundColor3 = ZynoxClient:GetTheme().Primary}, 0.2):Play()
             end)
             
             table.insert(Tab.Connections, tabConnection)
@@ -1736,13 +1751,13 @@ function ZynoxClient:CreateWindow(config)
             -- Enhanced hover effects
             local hoverConnection1 = tabButton.MouseEnter:Connect(function()
                 if not Tab.Visible then
-                    Utils.CreateTween(tabButton, {BackgroundColor3 = ZynoxClient:GetTheme().Surface}):Play()
+                    Utils.CreateTween(tabButton, {BackgroundColor3 = ZynoxClient:GetTheme().Surface}, 0.2):Play()
                 end
             end)
             
             local hoverConnection2 = tabButton.MouseLeave:Connect(function()
                 if not Tab.Visible then
-                    Utils.CreateTween(tabButton, {BackgroundColor3 = ZynoxClient:GetTheme().SurfaceLight}):Play()
+                    Utils.CreateTween(tabButton, {BackgroundColor3 = ZynoxClient:GetTheme().SurfaceLight}, 0.2):Play()
                 end
             end)
             
@@ -1771,7 +1786,7 @@ function ZynoxClient:CreateWindow(config)
                 
                 local buttonGlow = Utils.AddGlow(button, ZynoxClient:GetTheme().Primary, 10)
                 if buttonGlow then
-                    buttonGlow.ImageTransparency = 1
+                    buttonGlow.BackgroundTransparency = 1
                 end
                 
                 local buttonLabel = Instance.new("TextLabel")
@@ -1788,18 +1803,18 @@ function ZynoxClient:CreateWindow(config)
                 -- Enhanced button interactions
                 button.MouseEnter:Connect(function()
                     SoundSystem.PlaySound("Hover", 0.1)
-                    Utils.CreateTween(button, {BackgroundColor3 = ZynoxClient:GetTheme().Primary}):Play()
-                    Utils.CreateTween(buttonLabel, {TextColor3 = Color3.new(1, 1, 1)}):Play()
+                    Utils.CreateTween(button, {BackgroundColor3 = ZynoxClient:GetTheme().Primary}, 0.2):Play()
+                    Utils.CreateTween(buttonLabel, {TextColor3 = Color3.new(1, 1, 1)}, 0.2):Play()
                     if buttonGlow then
-                        Utils.CreateTween(buttonGlow, {ImageTransparency = 0.6}):Play()
+                        Utils.CreateTween(buttonGlow, {BackgroundTransparency = 0.6}, 0.2):Play()
                     end
                 end)
                 
                 button.MouseLeave:Connect(function()
-                    Utils.CreateTween(button, {BackgroundColor3 = ZynoxClient:GetTheme().SurfaceLight}):Play()
-                    Utils.CreateTween(buttonLabel, {TextColor3 = ZynoxClient:GetTheme().Text}):Play()
+                    Utils.CreateTween(button, {BackgroundColor3 = ZynoxClient:GetTheme().SurfaceLight}, 0.2):Play()
+                    Utils.CreateTween(buttonLabel, {TextColor3 = ZynoxClient:GetTheme().Text}, 0.2):Play()
                     if buttonGlow then
-                        Utils.CreateTween(buttonGlow, {ImageTransparency = 1}):Play()
+                        Utils.CreateTween(buttonGlow, {BackgroundTransparency = 1}, 0.2):Play()
                     end
                 end)
                 
@@ -1870,7 +1885,7 @@ function ZynoxClient:CreateWindow(config)
                 
                 local knobGlow = Utils.AddGlow(toggleKnob, ZynoxClient:GetTheme().Accent, 8)
                 if knobGlow then
-                    knobGlow.ImageTransparency = isToggled and 0.7 or 1
+                    knobGlow.BackgroundTransparency = isToggled and 0.7 or 1
                 end
                 
                 toggleSwitch.MouseButton1Click:Connect(function()
@@ -1884,7 +1899,7 @@ function ZynoxClient:CreateWindow(config)
                     Utils.CreateTween(toggleSwitch, {BackgroundColor3 = switchColor}, 0.2):Play()
                     Utils.CreateTween(toggleKnob, {Position = knobPos}, 0.2, Animations.Easing.Bounce):Play()
                     if knobGlow then
-                        Utils.CreateTween(knobGlow, {ImageTransparency = glowTrans}, 0.2):Play()
+                        Utils.CreateTween(knobGlow, {BackgroundTransparency = glowTrans}, 0.2):Play()
                     end
                     
                     ErrorHandler.SafeCall(validatedConfig.Callback, isToggled)
@@ -1962,7 +1977,7 @@ function ZynoxClient:CreateWindow(config)
                 
                 local knobGlow = Utils.AddGlow(sliderKnob, ZynoxClient:GetTheme().Primary, 12)
                 if knobGlow then
-                    knobGlow.ImageTransparency = 0.8
+                    knobGlow.BackgroundTransparency = 0.8
                 end
                 
                 local dragging = false
@@ -1989,7 +2004,7 @@ function ZynoxClient:CreateWindow(config)
                         updateSlider(input)
                         Utils.CreateTween(sliderKnob, {Size = UDim2.new(0, 22, 0, 22)}, 0.1):Play()
                         if knobGlow then
-                            Utils.CreateTween(knobGlow, {ImageTransparency = 0.5}, 0.1):Play()
+                            Utils.CreateTween(knobGlow, {BackgroundTransparency = 0.5}, 0.1):Play()
                         end
                     end
                 end)
@@ -2005,7 +2020,7 @@ function ZynoxClient:CreateWindow(config)
                         dragging = false
                         Utils.CreateTween(sliderKnob, {Size = UDim2.new(0, 18, 0, 18)}, 0.1):Play()
                         if knobGlow then
-                            Utils.CreateTween(knobGlow, {ImageTransparency = 0.8}, 0.1):Play()
+                            Utils.CreateTween(knobGlow, {BackgroundTransparency = 0.8}, 0.1):Play()
                         end
                     end
                 end)
@@ -2302,6 +2317,7 @@ function ZynoxClient:CreateWindow(config)
             
             -- Auto-select first tab
             if next(Window.Tabs) and not Window.CurrentTab then
+                wait(0.1)
                 tabButton.MouseButton1Click()
             end
             
@@ -2397,7 +2413,7 @@ end
 -- Initialize settings on load
 ZynoxClient:LoadSettings()
 
--- Client-side cleanup when player leaves (FIXED - removed BindToClose)
+-- Client-side cleanup when player leaves
 Players.PlayerRemoving:Connect(function(leavingPlayer)
     if leavingPlayer == player then
         ZynoxClient:SaveSettings()
