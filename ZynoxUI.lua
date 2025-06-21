@@ -83,7 +83,7 @@ function ErrorHandler.ValidateConfig(config, required, optional)
     return true, config
 end
 
--- Enhanced Animation Settings with performance optimization
+-- FIXED Animation Settings with valid Roblox easing styles only
 local Animations = {
     Speed = {
         Lightning = 0.08,
@@ -98,7 +98,9 @@ local Animations = {
         Elastic = Enum.EasingStyle.Elastic,
         Sharp = Enum.EasingStyle.Quad,
         Sine = Enum.EasingStyle.Sine,
-        Expo = Enum.EasingStyle.Expo
+        Linear = Enum.EasingStyle.Linear,  -- Fixed: Using Linear instead of Expo
+        Cubic = Enum.EasingStyle.Cubic,   -- Added valid alternative
+        Quart = Enum.EasingStyle.Quart    -- Added valid alternative
     },
     ActiveTweens = {},
     TweenPool = {}
@@ -469,6 +471,7 @@ function Utils.CreateParticles(parent, config)
             
             local moveX = math.random(-100, 100)
             local moveY = math.random(-100, 100)
+            -- FIXED: Using Linear instead of Expo
             local particleTween = Utils.CreateTween(particle, {
                 Position = UDim2.new(
                     particle.Position.X.Scale,
@@ -478,7 +481,7 @@ function Utils.CreateParticles(parent, config)
                 ),
                 BackgroundTransparency = 1,
                 Size = UDim2.new(0, 0, 0, 0)
-            }, duration, Animations.Easing.Expo)
+            }, duration, Animations.Easing.Linear)
             
             if particleTween then
                 particleTween:Play()
