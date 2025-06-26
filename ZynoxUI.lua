@@ -61,7 +61,7 @@ function UI:_createUI()
     self.screenGui.Name = "ZynoxUI"
     self.screenGui.ResetOnSpawn = false
     self.screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    self.screenGui.Parent = Player.PlayerGui
+    self.screenGui.Parent = game.CoreGui
     
     -- Main Frame
     self.mainFrame = Instance.new("Frame")
