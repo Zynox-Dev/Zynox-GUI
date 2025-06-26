@@ -1,811 +1,599 @@
--- Enhanced ZynoxUI Library v2.0
--- Features: Smooth drag, auto-sizing, mobile compatibility, responsive design
+-- Zynox UI Library - Easy-to-use Roblox GUI Library
+-- Version 2.0 - Modular and Simplified
 
 local ZynoxUI = {}
-ZynoxUI.__index = ZynoxUI
-
--- Services
-local Players = game:GetService("Players")
+local Player = game:GetService("Players").LocalPlayer
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local GuiService = game:GetService("GuiService")
 
--- Device Detection
-local function isMobile()
-    return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+-- Default theme
+local Theme = {
+    Primary = Color3.fromRGB(0, 120, 215),
+    Secondary = Color3.fromRGB(0, 200, 255),
+    Background = Color3.fromRGB(25, 25, 30),
+    Surface = Color3.fromRGB(35, 35, 42),
+    Sidebar = Color3.fromRGB(30, 30, 36),
+    Text = Color3.fromRGB(240, 240, 240),
+    TextSecondary = Color3.fromRGB(220, 220, 220),
+    Accent = Color3.fromRGB(0, 170, 255),
+    Success = Color3.fromRGB(40, 167, 69),
+    Warning = Color3.fromRGB(255, 193, 7),
+    Error = Color3.fromRGB(220, 53, 69)
+}
+
+-- Main UI Class
+local UI = {}
+UI.__index = UI
+
+function ZynoxUI.new(config)
+    local self = setmetatable({}, UI)
+    
+    -- Configuration with defaults
+    self.config = {
+        title = config.title or "Zynox UI",
+        size = config.size or {850, 550},
+        theme = config.theme or Theme,
+        draggable = config.draggable ~= false,
+        resizable = config.resizable or false,
+        showWelcome = config.showWelcome ~= false
+    }
+    
+    self.tabs = {}
+    self.currentTab = nil
+    self.elements = {}
+    
+    self:_createUI()
+    if self.config.showWelcome then
+        self:_showWelcome()
+    end
+    
+    return self
 end
 
-local function isTablet()
-    return UserInputService.TouchEnabled and UserInputService.KeyboardEnabled
-end
-
--- Animation Settings
-local tweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-local fastTween = TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-local smoothTween = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-
--- Utility Functions
-local function createCorner(parent, radius)
+function UI:_createUI()
+    -- Remove existing UI
+    local existing = Player.PlayerGui:FindFirstChild("ZynoxUI")
+    if existing then existing:Destroy() end
+    
+    -- Create ScreenGui
+    self.screenGui = Instance.new("ScreenGui")
+    self.screenGui.Name = "ZynoxUI"
+    self.screenGui.ResetOnSpawn = false
+    self.screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    self.screenGui.Parent = Player.PlayerGui
+    
+    -- Main Frame
+    self.mainFrame = Instance.new("Frame")
+    self.mainFrame.Name = "MainFrame"
+    self.mainFrame.Size = UDim2.new(0, self.config.size[1], 0, self.config.size[2])
+    self.mainFrame.Position = UDim2.new(0.5, -self.config.size[1]/2, 0.5, -self.config.size[2]/2)
+    self.mainFrame.BackgroundColor3 = self.config.theme.Background
+    self.mainFrame.BorderSizePixel = 0
+    self.mainFrame.ClipsDescendants = true
+    self.mainFrame.Parent = self.screenGui
+    
+    -- Styling
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, radius or 8)
-    corner.Parent = parent
-    return corner
-end
-
-local function createPadding(parent, padding)
-    local pad = Instance.new("UIPadding")
-    if typeof(padding) == "number" then
-        pad.PaddingTop = UDim.new(0, padding)
-        pad.PaddingBottom = UDim.new(0, padding)
-        pad.PaddingLeft = UDim.new(0, padding)
-        pad.PaddingRight = UDim.new(0, padding)
-    else
-        pad.PaddingTop = UDim.new(0, padding.Top or 0)
-        pad.PaddingBottom = UDim.new(0, padding.Bottom or 0)
-        pad.PaddingLeft = UDim.new(0, padding.Left or 0)
-        pad.PaddingRight = UDim.new(0, padding.Right or 0)
-    end
-    pad.Parent = parent
-    return pad
-end
-
-local function createStroke(parent, thickness, color)
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = self.mainFrame
+    
     local stroke = Instance.new("UIStroke")
-    stroke.Thickness = thickness or 1
-    stroke.Color = color or Color3.fromRGB(60, 60, 70)
-    stroke.Parent = parent
-    return stroke
+    stroke.Color = Color3.fromRGB(60, 60, 70)
+    stroke.Thickness = 2
+    stroke.Transparency = 0.8
+    stroke.Parent = self.mainFrame
+    
+    self:_createTopBar()
+    self:_createSidebar()
+    self:_createTabContainer()
+    self:_setupDragging()
+    self:_setupAnimations()
 end
 
-local function addHoverEffect(element, normalColor, hoverColor, pressedColor)
-    local isPressed = false
+function UI:_createTopBar()
+    self.topBar = Instance.new("Frame")
+    self.topBar.Name = "TopBar"
+    self.topBar.Size = UDim2.new(1, 0, 0, 40)
+    self.topBar.BackgroundColor3 = self.config.theme.Surface
+    self.topBar.BorderSizePixel = 0
+    self.topBar.Parent = self.mainFrame
     
-    element.MouseEnter:Connect(function()
-        if not isPressed then
-            TweenService:Create(element, fastTween, {BackgroundColor3 = hoverColor}):Play()
-        end
+    -- Gradient
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, self.config.theme.Primary),
+        ColorSequenceKeypoint.new(1, self.config.theme.Secondary)
+    })
+    gradient.Rotation = 90
+    gradient.Parent = self.topBar
+    
+    -- Title
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(0, 200, 1, 0)
+    title.Position = UDim2.new(0, 15, 0, 0)
+    title.BackgroundTransparency = 1
+    title.Text = self.config.title
+    title.TextColor3 = self.config.theme.Text
+    title.TextSize = 16
+    title.Font = Enum.Font.GothamSemibold
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = self.topBar
+    
+    self:_createWindowControls()
+end
+
+function UI:_createWindowControls()
+    -- Close Button
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 46, 1, 0)
+    closeBtn.Position = UDim2.new(1, -46, 0, 0)
+    closeBtn.BackgroundColor3 = self.config.theme.Surface
+    closeBtn.Text = "✕"
+    closeBtn.TextColor3 = self.config.theme.Text
+    closeBtn.TextSize = 20
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.AutoButtonColor = false
+    closeBtn.Parent = self.topBar
+    
+    -- Minimize Button
+    local minimizeBtn = Instance.new("TextButton")
+    minimizeBtn.Size = UDim2.new(0, 46, 1, 0)
+    minimizeBtn.Position = UDim2.new(1, -92, 0, 0)
+    minimizeBtn.BackgroundColor3 = self.config.theme.Surface
+    minimizeBtn.Text = "–"
+    minimizeBtn.TextColor3 = self.config.theme.Text
+    minimizeBtn.TextSize = 22
+    minimizeBtn.Font = Enum.Font.GothamBold
+    minimizeBtn.AutoButtonColor = false
+    minimizeBtn.Parent = self.topBar
+    
+    -- Button functionality
+    closeBtn.MouseButton1Click:Connect(function()
+        self:Close()
     end)
     
-    element.MouseLeave:Connect(function()
-        if not isPressed then
-            TweenService:Create(element, fastTween, {BackgroundColor3 = normalColor}):Play()
-        end
+    local isMinimized = false
+    minimizeBtn.MouseButton1Click:Connect(function()
+        self:Toggle()
+        isMinimized = not isMinimized
     end)
     
-    if element:IsA("GuiButton") then
-        element.MouseButton1Down:Connect(function()
-            isPressed = true
-            TweenService:Create(element, fastTween, {
-                BackgroundColor3 = pressedColor or hoverColor,
-                Size = element.Size - UDim2.new(0, 2, 0, 2)
-            }):Play()
-        end)
-        
-        element.MouseButton1Up:Connect(function()
-            isPressed = false
-            TweenService:Create(element, fastTween, {
-                BackgroundColor3 = hoverColor,
-                Size = element.Size + UDim2.new(0, 2, 0, 2)
-            }):Play()
-        end)
+    -- Hover effects
+    self:_addHoverEffect(closeBtn, self.config.theme.Error)
+    self:_addHoverEffect(minimizeBtn, Color3.fromRGB(60, 60, 70))
+end
+
+function UI:_createSidebar()
+    self.sidebar = Instance.new("Frame")
+    self.sidebar.Name = "Sidebar"
+    self.sidebar.Size = UDim2.new(0, 200, 1, -40)
+    self.sidebar.Position = UDim2.new(0, 0, 0, 40)
+    self.sidebar.BackgroundColor3 = self.config.theme.Sidebar
+    self.sidebar.BorderSizePixel = 0
+    self.sidebar.Parent = self.mainFrame
+    
+    -- Sidebar container
+    self.sidebarContainer = Instance.new("ScrollingFrame")
+    self.sidebarContainer.Size = UDim2.new(1, 0, 1, 0)
+    self.sidebarContainer.BackgroundTransparency = 1
+    self.sidebarContainer.ScrollBarThickness = 4
+    self.sidebarContainer.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 120)
+    self.sidebarContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    self.sidebarContainer.Parent = self.sidebar
+    
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 5)
+    layout.Parent = self.sidebarContainer
+end
+
+function UI:_createTabContainer()
+    self.tabContainer = Instance.new("Frame")
+    self.tabContainer.Name = "TabContainer"
+    self.tabContainer.Size = UDim2.new(1, -200, 1, -40)
+    self.tabContainer.Position = UDim2.new(0, 200, 0, 40)
+    self.tabContainer.BackgroundTransparency = 1
+    self.tabContainer.ClipsDescendants = true
+    self.tabContainer.Parent = self.mainFrame
+end
+
+-- Public Methods
+function UI:CreateTab(name, icon)
+    local tab = {
+        name = name,
+        icon = icon or "📄",
+        frame = nil,
+        button = nil,
+        elements = {}
+    }
+    
+    -- Create tab frame
+    tab.frame = Instance.new("Frame")
+    tab.frame.Name = name .. "Tab"
+    tab.frame.Size = UDim2.new(1, 0, 1, 0)
+    tab.frame.BackgroundTransparency = 1
+    tab.frame.Visible = false
+    tab.frame.Parent = self.tabContainer
+    
+    -- Create scrollable content
+    local scrollFrame = Instance.new("ScrollingFrame")
+    scrollFrame.Size = UDim2.new(1, -40, 1, -20)
+    scrollFrame.Position = UDim2.new(0, 20, 0, 10)
+    scrollFrame.BackgroundTransparency = 1
+    scrollFrame.ScrollBarThickness = 4
+    scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scrollFrame.Parent = tab.frame
+    
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 10)
+    layout.Parent = scrollFrame
+    
+    tab.content = scrollFrame
+    
+    -- Create sidebar button
+    tab.button = self:_createSidebarButton(name, icon, function()
+        self:_switchTab(tab)
+    end)
+    
+    table.insert(self.tabs, tab)
+    
+    -- Auto-select first tab
+    if #self.tabs == 1 then
+        self:_switchTab(tab)
     end
+    
+    return tab
 end
 
-local function addRippleEffect(element)
-    element.MouseButton1Click:Connect(function()
-        local ripple = Instance.new("Frame")
-        ripple.Size = UDim2.new(0, 0, 0, 0)
-        ripple.Position = UDim2.new(0.5, 0, 0.5, 0)
-        ripple.AnchorPoint = Vector2.new(0.5, 0.5)
-        ripple.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        ripple.BackgroundTransparency = 0.8
-        ripple.BorderSizePixel = 0
-        ripple.Parent = element
+function UI:AddButton(tab, text, callback)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, -20, 0, 40)
+    button.BackgroundColor3 = self.config.theme.Surface
+    button.Text = text
+    button.TextColor3 = self.config.theme.Text
+    button.TextSize = 14
+    button.Font = Enum.Font.Gotham
+    button.AutoButtonColor = false
+    button.Parent = tab.content
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = button
+    
+    self:_addHoverEffect(button, self.config.theme.Primary)
+    
+    if callback then
+        button.MouseButton1Click:Connect(callback)
+    end
+    
+    return button
+end
+
+function UI:AddToggle(tab, text, defaultValue, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -20, 0, 40)
+    frame.BackgroundTransparency = 1
+    frame.Parent = tab.content
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = self.config.theme.Text
+    label.TextSize = 14
+    label.Font = Enum.Font.Gotham
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+    
+    local toggleButton = Instance.new("TextButton")
+    toggleButton.Size = UDim2.new(0, 50, 0, 24)
+    toggleButton.Position = UDim2.new(1, -50, 0.5, -12)
+    toggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 58)
+    toggleButton.Text = ""
+    toggleButton.AutoButtonColor = false
+    toggleButton.Parent = frame
+    
+    local toggleCorner = Instance.new("UICorner")
+    toggleCorner.CornerRadius = UDim.new(0, 12)
+    toggleCorner.Parent = toggleButton
+    
+    local dot = Instance.new("Frame")
+    dot.Size = UDim2.new(0, 20, 0, 20)
+    dot.Position = UDim2.new(0, 2, 0.5, -10)
+    dot.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+    dot.BorderSizePixel = 0
+    dot.Parent = toggleButton
+    
+    local dotCorner = Instance.new("UICorner")
+    dotCorner.CornerRadius = UDim.new(0.5, 0)
+    dotCorner.Parent = dot
+    
+    local isToggled = defaultValue or false
+    
+    local function updateToggle()
+        local goalPos = isToggled and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0, 2, 0.5, -10)
+        local goalColor = isToggled and self.config.theme.Accent or Color3.fromRGB(50, 50, 58)
         
-        createCorner(ripple, 100)
+        TweenService:Create(toggleButton, TweenInfo.new(0.2), {BackgroundColor3 = goalColor}):Play()
+        TweenService:Create(dot, TweenInfo.new(0.2), {Position = goalPos}):Play()
         
-        local maxSize = math.max(element.AbsoluteSize.X, element.AbsoluteSize.Y) * 2
-        
-        local expandTween = TweenService:Create(ripple, 
-            TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-            {
-                Size = UDim2.new(0, maxSize, 0, maxSize),
-                BackgroundTransparency = 1
-            }
-        )
-        
-        expandTween:Play()
-        expandTween.Completed:Connect(function()
-            ripple:Destroy()
-        end)
+        if callback then callback(isToggled) end
+    end
+    
+    toggleButton.MouseButton1Click:Connect(function()
+        isToggled = not isToggled
+        updateToggle()
     end)
+    
+    updateToggle()
+    return {Set = function(value) isToggled = value; updateToggle() end, Get = function() return isToggled end}
 end
 
--- Smooth Drag System
-local function makeDraggable(frame, dragHandle)
-    local dragHandle = dragHandle or frame
-    local dragging = false
-    local dragInput, mousePos, framePos
+function UI:AddSlider(tab, text, min, max, default, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -20, 0, 60)
+    frame.BackgroundTransparency = 1
+    frame.Parent = tab.content
     
-    -- Smooth drag with momentum
-    local velocity = Vector2.new(0, 0)
-    local lastPosition = Vector2.new(0, 0)
-    local momentum = 0.85
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0, 20)
+    label.BackgroundTransparency = 1
+    label.Text = text .. ": " .. (default or min)
+    label.TextColor3 = self.config.theme.Text
+    label.TextSize = 14
+    label.Font = Enum.Font.Gotham
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
     
-    dragHandle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            mousePos = input.Position
-            framePos = frame.Position
-            lastPosition = input.Position
-            velocity = Vector2.new(0, 0)
-            
-            -- Visual feedback
-            TweenService:Create(frame, fastTween, {
-                Size = frame.Size * 0.98
-            }):Play()
+    local track = Instance.new("Frame")
+    track.Size = UDim2.new(1, 0, 0, 4)
+    track.Position = UDim2.new(0, 0, 0, 30)
+    track.BackgroundColor3 = Color3.fromRGB(50, 50, 58)
+    track.BorderSizePixel = 0
+    track.Parent = frame
+    
+    local trackCorner = Instance.new("UICorner")
+    trackCorner.CornerRadius = UDim.new(0, 2)
+    trackCorner.Parent = track
+    
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new(0.5, 0, 1, 0)
+    fill.BackgroundColor3 = self.config.theme.Accent
+    fill.BorderSizePixel = 0
+    fill.Parent = track
+    
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(0, 2)
+    fillCorner.Parent = fill
+    
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0, 16, 0, 16)
+    button.Position = UDim2.new(0.5, -8, 0.5, -8)
+    button.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    button.Text = ""
+    button.Parent = track
+    
+    local buttonCorner = Instance.new("UICorner")
+    buttonCorner.CornerRadius = UDim.new(0.5, 0)
+    buttonCorner.Parent = button
+    
+    local currentValue = default or min
+    local isDragging = false
+    
+    local function updateSlider(posX)
+        local relativeX = math.clamp(posX - track.AbsolutePosition.X, 0, track.AbsoluteSize.X)
+        local percentage = relativeX / track.AbsoluteSize.X
+        
+        fill.Size = UDim2.new(percentage, 0, 1, 0)
+        button.Position = UDim2.new(percentage, -8, 0.5, -8)
+        
+        currentValue = math.floor(min + (max - min) * percentage + 0.5)
+        label.Text = text .. ": " .. currentValue
+        
+        if callback then callback(currentValue) end
+    end
+    
+    button.MouseButton1Down:Connect(function() isDragging = true end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDragging = false
         end
     end)
     
-    dragHandle.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
+    RunService.Heartbeat:Connect(function()
+        if isDragging then
+            local mouse = UserInputService:GetMouseLocation()
+            updateSlider(mouse.X)
+        end
+    end)
+    
+    return {Set = function(value) updateSlider(track.AbsolutePosition.X + (track.AbsoluteSize.X * ((value - min) / (max - min)))) end, Get = function() return currentValue end}
+end
+
+-- Helper Methods
+function UI:_createSidebarButton(text, icon, callback)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, -20, 0, 40)
+    button.Position = UDim2.new(0, 10, 0, 0)
+    button.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
+    button.Text = "  " .. icon .. "  " .. text
+    button.TextColor3 = self.config.theme.TextSecondary
+    button.TextSize = 14
+    button.Font = Enum.Font.Gotham
+    button.TextXAlignment = Enum.TextXAlignment.Left
+    button.AutoButtonColor = false
+    button.Parent = self.sidebarContainer
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = button
+    
+    self:_addHoverEffect(button, self.config.theme.Primary)
+    
+    if callback then
+        button.MouseButton1Click:Connect(callback)
+    end
+    
+    return button
+end
+
+function UI:_addHoverEffect(button, hoverColor)
+    local originalColor = button.BackgroundColor3
+    
+    button.MouseEnter:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = hoverColor}):Play()
+    end)
+    
+    button.MouseLeave:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = originalColor}):Play()
+    end)
+end
+
+function UI:_switchTab(tab)
+    if self.currentTab then
+        self.currentTab.frame.Visible = false
+        TweenService:Create(self.currentTab.button, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.fromRGB(40, 40, 48)
+        }):Play()
+    end
+    
+    tab.frame.Visible = true
+    self.currentTab = tab
+    
+    TweenService:Create(tab.button, TweenInfo.new(0.2), {
+        BackgroundColor3 = self.config.theme.Primary
+    }):Play()
+end
+
+function UI:_setupDragging()
+    if not self.config.draggable then return end
+    
+    local dragging = false
+    local dragStart, startPos
+    
+    self.topBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = self.mainFrame.Position
         end
     end)
     
     UserInputService.InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
-            local delta = input.Position - mousePos
-            velocity = (input.Position - lastPosition) * momentum
-            lastPosition = input.Position
-            
-            local newPos = UDim2.new(
-                framePos.X.Scale,
-                framePos.X.Offset + delta.X,
-                framePos.Y.Scale,
-                framePos.Y.Offset + delta.Y
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            self.mainFrame.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
             )
-            
-            -- Smooth position update
-            TweenService:Create(frame, 
-                TweenInfo.new(0.1, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-                {Position = newPos}
-            ):Play()
         end
     end)
     
     UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            if dragging then
-                dragging = false
-                
-                -- Reset visual feedback
-                TweenService:Create(frame, fastTween, {
-                    Size = frame.Size / 0.98
-                }):Play()
-                
-                -- Apply momentum
-                if velocity.Magnitude > 5 then
-                    local momentumPos = UDim2.new(
-                        frame.Position.X.Scale,
-                        frame.Position.X.Offset + velocity.X * 0.3,
-                        frame.Position.Y.Scale,
-                        frame.Position.Y.Offset + velocity.Y * 0.3
-                    )
-                    
-                    TweenService:Create(frame, 
-                        TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
-                        {Position = momentumPos}
-                    ):Play()
-                end
-            end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
         end
     end)
 end
 
--- Auto-sizing system
-local function setupAutoSize(container, layout, padding)
-    padding = padding or 20
+function UI:_setupAnimations()
+    -- Entrance animation
+    self.mainFrame.Position = UDim2.new(0.5, -self.config.size[1]/2, 0.4, -self.config.size[2]/2)
+    self.mainFrame.BackgroundTransparency = 1
     
-    local function updateSize()
-        local contentSize = layout.AbsoluteContentSize
-        local newSize = UDim2.new(
-            container.Size.X.Scale,
-            math.max(container.Size.X.Offset, contentSize.X + padding),
-            container.Size.Y.Scale,
-            math.max(100, contentSize.Y + padding)
-        )
-        
-        TweenService:Create(container, smoothTween, {Size = newSize}):Play()
-    end
-    
-    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateSize)
-    updateSize()
+    task.wait(0.1)
+    TweenService:Create(self.mainFrame, TweenInfo.new(0.7, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, -self.config.size[1]/2, 0.5, -self.config.size[2]/2),
+        BackgroundTransparency = 0
+    }):Play()
 end
 
--- Responsive sizing based on device
-local function getResponsiveSize(baseSize)
-    local screenSize = workspace.CurrentCamera.ViewportSize
-    local scaleFactor = 1
+function UI:_showWelcome()
+    local welcomeGui = Instance.new("ScreenGui")
+    welcomeGui.Name = "WelcomeGui"
+    welcomeGui.ResetOnSpawn = false
+    welcomeGui.Parent = Player.PlayerGui
     
-    if isMobile() then
-        scaleFactor = math.min(screenSize.X / 400, screenSize.Y / 600) * 0.9
-    elseif isTablet() then
-        scaleFactor = math.min(screenSize.X / 600, screenSize.Y / 800) * 0.8
-    else
-        scaleFactor = math.min(screenSize.X / 800, screenSize.Y / 1000) * 0.7
-    end
+    local welcomeFrame = Instance.new("Frame")
+    welcomeFrame.Size = UDim2.new(0, 300, 0, 80)
+    welcomeFrame.Position = UDim2.new(0.5, -150, 0.4, -40)
+    welcomeFrame.BackgroundColor3 = self.config.theme.Background
+    welcomeFrame.BackgroundTransparency = 0.2
+    welcomeFrame.BorderSizePixel = 0
+    welcomeFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    welcomeFrame.Parent = welcomeGui
     
-    return {
-        math.floor(baseSize[1] * scaleFactor),
-        math.floor(baseSize[2] * scaleFactor)
-    }
-end
-
--- Main Library
-local Library = {}
-Library.__index = Library
-
-function Library:CreateWindow(config)
-    local window = {}
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 12)
+    corner.Parent = welcomeFrame
     
-    -- Default config with responsive sizing
-    config = config or {}
-    config.Title = config.Title or "ZynoxUI"
-    config.Size = getResponsiveSize(config.Size or {350, 450})
-    config.Theme = config.Theme or "Dark"
-    config.Resizable = config.Resizable ~= false
-    config.MinSize = config.MinSize or {250, 200}
-    config.MaxSize = config.MaxSize or {800, 600}
+    local text = Instance.new("TextLabel")
+    text.Size = UDim2.new(1, -20, 1, -20)
+    text.Position = UDim2.new(0, 10, 0, 10)
+    text.BackgroundTransparency = 1
+    text.Text = "Welcome to " .. self.config.title .. "!"
+    text.TextColor3 = self.config.theme.Text
+    text.TextSize = 24
+    text.Font = Enum.Font.GothamBold
+    text.TextWrapped = true
+    text.Parent = welcomeFrame
     
-    -- Create ScreenGui
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "ZynoxUI_" .. config.Title
-    screenGui.ResetOnSpawn = false
-    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    screenGui.Parent = game.CoreGui
-    
-    -- Main Frame with enhanced styling
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.new(0, config.Size[1], 0, config.Size[2])
-    mainFrame.Position = UDim2.new(0.5, -config.Size[1]/2, 0.5, -config.Size[2]/2)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-    mainFrame.BorderSizePixel = 0
-    mainFrame.Active = true
-    mainFrame.Parent = screenGui
-    
-    createCorner(mainFrame, isMobile() and 16 or 12)
-    createStroke(mainFrame, 1, Color3.fromRGB(40, 40, 50))
-    
-    -- Drop shadow effect
-    local shadow = Instance.new("Frame")
-    shadow.Name = "Shadow"
-    shadow.Size = UDim2.new(1, 10, 1, 10)
-    shadow.Position = UDim2.new(0, -5, 0, -5)
-    shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    shadow.BackgroundTransparency = 0.7
-    shadow.BorderSizePixel = 0
-    shadow.ZIndex = mainFrame.ZIndex - 1
-    shadow.Parent = mainFrame
-    
-    createCorner(shadow, isMobile() and 16 or 12)
-    
-    -- Title Bar with gradient
-    local titleBar = Instance.new("Frame")
-    titleBar.Name = "TitleBar"
-    titleBar.Size = UDim2.new(1, 0, 0, isMobile() and 50 or 45)
-    titleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-    titleBar.BorderSizePixel = 0
-    titleBar.Parent = mainFrame
-    
-    createCorner(titleBar, isMobile() and 16 or 12)
-    
-    -- Gradient effect
     local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(35, 35, 45)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 25, 35))
-    }
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, self.config.theme.Primary),
+        ColorSequenceKeypoint.new(1, self.config.theme.Secondary)
+    })
     gradient.Rotation = 90
-    gradient.Parent = titleBar
+    gradient.Parent = welcomeFrame
     
-    -- Title Text with better positioning
-    local titleText = Instance.new("TextLabel")
-    titleText.Size = UDim2.new(1, -100, 1, 0)
-    titleText.Position = UDim2.new(0, 15, 0, 0)
-    titleText.BackgroundTransparency = 1
-    titleText.Text = config.Title
-    titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    titleText.TextSize = isMobile() and 18 or 16
-    titleText.Font = Enum.Font.GothamBold
-    titleText.TextXAlignment = Enum.TextXAlignment.Left
-    titleText.Parent = titleBar
+    task.wait(2)
     
-    -- Control buttons container
-    local controlsFrame = Instance.new("Frame")
-    controlsFrame.Name = "ControlsFrame"
-    controlsFrame.Size = UDim2.new(0, 80, 1, -10)
-    controlsFrame.Position = UDim2.new(1, -85, 0, 5)
-    controlsFrame.BackgroundTransparency = 1
-    controlsFrame.Parent = titleBar
+    local fadeOut = TweenService:Create(welcomeFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+        BackgroundTransparency = 1,
+        Size = welcomeFrame.Size + UDim2.new(0, 20, 0, 20)
+    })
+    local textFade = TweenService:Create(text, TweenInfo.new(0.5), {TextTransparency = 1})
     
-    local controlsLayout = Instance.new("UIListLayout")
-    controlsLayout.FillDirection = Enum.FillDirection.Horizontal
-    controlsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
-    controlsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-    controlsLayout.Padding = UDim.new(0, 5)
-    controlsLayout.Parent = controlsFrame
+    fadeOut:Play()
+    textFade:Play()
     
-    -- Minimize button
-    local minimizeButton = Instance.new("TextButton")
-    minimizeButton.Size = UDim2.new(0, isMobile() and 35 or 30, 0, isMobile() and 35 or 30)
-    minimizeButton.BackgroundColor3 = Color3.fromRGB(100, 100, 120)
-    minimizeButton.BorderSizePixel = 0
-    minimizeButton.Text = "−"
-    minimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    minimizeButton.TextSize = isMobile() and 20 or 18
-    minimizeButton.Font = Enum.Font.GothamBold
-    minimizeButton.Parent = controlsFrame
-    
-    createCorner(minimizeButton, 8)
-    addHoverEffect(minimizeButton, Color3.fromRGB(100, 100, 120), Color3.fromRGB(120, 120, 140))
-    addRippleEffect(minimizeButton)
-    
-    -- Close Button with enhanced styling
-    local closeButton = Instance.new("TextButton")
-    closeButton.Size = UDim2.new(0, isMobile() and 35 or 30, 0, isMobile() and 35 or 30)
-    closeButton.BackgroundColor3 = Color3.fromRGB(255, 75, 75)
-    closeButton.BorderSizePixel = 0
-    closeButton.Text = "×"
-    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeButton.TextSize = isMobile() and 20 or 18
-    closeButton.Font = Enum.Font.GothamBold
-    closeButton.Parent = controlsFrame
-    
-    createCorner(closeButton, 8)
-    addHoverEffect(closeButton, Color3.fromRGB(255, 75, 75), Color3.fromRGB(255, 100, 100), Color3.fromRGB(255, 50, 50))
-    addRippleEffect(closeButton)
-    
-    -- Content Frame with auto-sizing
-    local contentFrame = Instance.new("ScrollingFrame")
-    contentFrame.Name = "ContentFrame"
-    contentFrame.Size = UDim2.new(1, -20, 1, -(titleBar.Size.Y.Offset + 15))
-    contentFrame.Position = UDim2.new(0, 10, 0, titleBar.Size.Y.Offset + 5)
-    contentFrame.BackgroundTransparency = 1
-    contentFrame.BorderSizePixel = 0
-    contentFrame.ScrollBarThickness = isMobile() and 8 or 6
-    contentFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 120)
-    contentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    contentFrame.ScrollingDirection = Enum.ScrollingDirection.Y
-    contentFrame.Parent = mainFrame
-    
-    -- Enhanced scrollbar styling
-    contentFrame.ScrollBarImageTransparency = 0.3
-    
-    -- Layout with responsive padding
-    local layout = Instance.new("UIListLayout")
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Padding = UDim.new(0, isMobile() and 12 or 10)
-    layout.Parent = contentFrame
-    
-    createPadding(contentFrame, isMobile() and 8 : 5)
-    
-    -- Auto-update canvas size
-    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        contentFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + (isMobile() and 20 or 15))
+    fadeOut.Completed:Connect(function()
+        welcomeGui:Destroy()
     end)
-    
-    -- Make draggable with smooth drag
-    makeDraggable(mainFrame, titleBar)
-    
-    -- Window state management
-    local isMinimized = false
-    local originalSize = mainFrame.Size
-    
-    -- Minimize functionality
-    minimizeButton.MouseButton1Click:Connect(function()
-        isMinimized = not isMinimized
-        
-        if isMinimized then
-            TweenService:Create(mainFrame, smoothTween, {
-                Size = UDim2.new(0, originalSize.X.Offset, 0, titleBar.Size.Y.Offset)
-            }):Play()
-            minimizeButton.Text = "+"
-            contentFrame.Visible = false
-        else
-            TweenService:Create(mainFrame, smoothTween, {
-                Size = originalSize
-            }):Play()
-            minimizeButton.Text = "−"
-            contentFrame.Visible = true
-        end
-    end)
-    
-    -- Close functionality with animation
-    closeButton.MouseButton1Click:Connect(function()
-        local closeTween = TweenService:Create(mainFrame, smoothTween, {
-            Size = UDim2.new(0, 0, 0, 0),
-            Position = UDim2.new(0.5, 0, 0.5, 0),
-            BackgroundTransparency = 1
-        })
-        
-        local shadowTween = TweenService:Create(shadow, smoothTween, {
-            BackgroundTransparency = 1
-        })
-        
-        closeTween:Play()
-        shadowTween:Play()
-        
-        closeTween.Completed:Connect(function()
-            screenGui:Destroy()
-        end)
-    end)
-    
-    -- Window object with enhanced methods
-    window.ScreenGui = screenGui
-    window.MainFrame = mainFrame
-    window.ContentFrame = contentFrame
-    window.Layout = layout
-    window.ElementCount = 0
-    window.Config = config
-    
-    -- Enhanced Toggle with mobile optimization
-    function window:CreateToggle(config)
-        config = config or {}
-        config.Name = config.Name or "Toggle"
-        config.Default = config.Default or false
-        config.Callback = config.Callback or function() end
-        config.Description = config.Description
-        
-        local toggleFrame = Instance.new("Frame")
-        toggleFrame.Name = "ToggleFrame"
-        toggleFrame.Size = UDim2.new(1, 0, 0, config.Description and (isMobile() and 65 or 55) or (isMobile() and 50 or 45))
-        toggleFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-        toggleFrame.BorderSizePixel = 0
-        toggleFrame.LayoutOrder = self.ElementCount
-        toggleFrame.Parent = self.ContentFrame
-        
-        createCorner(toggleFrame, isMobile() and 12 or 8)
-        createStroke(toggleFrame, 1, Color3.fromRGB(45, 45, 55))
-        
-        local toggleLabel = Instance.new("TextLabel")
-        toggleLabel.Size = UDim2.new(1, -80, config.Description and 0.6 or 1, 0)
-        toggleLabel.Position = UDim2.new(0, 15, 0, 0)
-        toggleLabel.BackgroundTransparency = 1
-        toggleLabel.Text = config.Name
-        toggleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        toggleLabel.TextSize = isMobile() and 16 or 14
-        toggleLabel.Font = Enum.Font.GothamBold
-        toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
-        toggleLabel.TextYAlignment = config.Description and Enum.TextYAlignment.Bottom or Enum.TextYAlignment.Center
-        toggleLabel.Parent = toggleFrame
-        
-        -- Description text
-        if config.Description then
-            local descLabel = Instance.new("TextLabel")
-            descLabel.Size = UDim2.new(1, -80, 0.4, 0)
-            descLabel.Position = UDim2.new(0, 15, 0.6, 0)
-            descLabel.BackgroundTransparency = 1
-            descLabel.Text = config.Description
-            descLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
-            descLabel.TextSize = isMobile() and 13 or 11
-            descLabel.Font = Enum.Font.Gotham
-            descLabel.TextXAlignment = Enum.TextXAlignment.Left
-            descLabel.TextYAlignment = Enum.TextYAlignment.Top
-            descLabel.Parent = toggleFrame
-        end
-        
-        -- Enhanced Toggle Switch
-        local switchFrame = Instance.new("Frame")
-        switchFrame.Size = UDim2.new(0, isMobile() and 55 or 50, 0, isMobile() and 28 or 25)
-        switchFrame.Position = UDim2.new(1, -(isMobile() and 65 or 60), 0.5, -(isMobile() and 14 or 12.5))
-        switchFrame.BackgroundColor3 = config.Default and Color3.fromRGB(100, 150, 255) or Color3.fromRGB(60, 60, 70)
-        switchFrame.BorderSizePixel = 0
-        switchFrame.Parent = toggleFrame
-        
-        createCorner(switchFrame, isMobile() and 14 or 12.5)
-        
-        local switchButton = Instance.new("TextButton")
-        switchButton.Size = UDim2.new(0, isMobile() and 22 or 20, 0, isMobile() and 22 or 20)
-        switchButton.Position = config.Default and 
-            UDim2.new(1, -(isMobile() and 25 or 23), 0, isMobile() and 3 or 2.5) or 
-            UDim2.new(0, isMobile() and 3 or 2.5, 0, isMobile() and 3 or 2.5)
-        switchButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        switchButton.BorderSizePixel = 0
-        switchButton.Text = ""
-        switchButton.Parent = switchFrame
-        
-        createCorner(switchButton, isMobile() and 11 or 10)
-        createStroke(switchButton, 1, Color3.fromRGB(200, 200, 210))
-        
-        local isToggled = config.Default
-        
-        -- Enhanced toggle animation
-        local function updateToggle()
-            local targetPos = isToggled and 
-                UDim2.new(1, -(isMobile() and 25 or 23), 0, isMobile() and 3 or 2.5) or 
-                UDim2.new(0, isMobile() and 3 or 2.5, 0, isMobile() and 3 or 2.5)
-            local targetColor = isToggled and Color3.fromRGB(100, 150, 255) or Color3.fromRGB(60, 60, 70)
-            local buttonColor = isToggled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(240, 240, 245)
-            
-            TweenService:Create(switchButton, tweenInfo, {Position = targetPos, BackgroundColor3 = buttonColor}):Play()
-            TweenService:Create(switchFrame, tweenInfo, {BackgroundColor3 = targetColor}):Play()
-        end
-        
-        switchButton.MouseButton1Click:Connect(function()
-            isToggled = not isToggled
-            updateToggle()
-            config.Callback(isToggled)
-        end)
-        
-        -- Touch-friendly click area
-        switchFrame.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.Touch then
-                switchButton.MouseButton1Click:Fire()
-            end
-        end)
-        
-        addRippleEffect(switchButton)
-        
-        self.ElementCount = self.ElementCount + 1
-        
-        return {
-            Toggle = function(state)
-                if state ~= nil and state ~= isToggled then
-                    isToggled = state
-                    updateToggle()
-                    config.Callback(isToggled)
-                end
-            end,
-            GetState = function()
-                return isToggled
-            end
-        }
-    end
-    
-    -- Enhanced Slider with mobile optimization
-    function window:CreateSlider(config)
-        config = config or {}
-        config.Name = config.Name or "Slider"
-        config.Min = config.Min or 0
-        config.Max = config.Max or 100
-        config.Default = math.clamp(config.Default or config.Min, config.Min, config.Max)
-        config.Increment = config.Increment or 1
-        config.Callback = config.Callback or function() end
-        config.Description = config.Description
-        
-        local sliderFrame = Instance.new("Frame")
-        sliderFrame.Name = "SliderFrame"
-        sliderFrame.Size = UDim2.new(1, 0, 0, config.Description and (isMobile() and 75 or 65) or (isMobile() and 60 or 55))
-        sliderFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-        sliderFrame.BorderSizePixel = 0
-        sliderFrame.LayoutOrder = self.ElementCount
-        sliderFrame.Parent = self.ContentFrame
-        
-        createCorner(sliderFrame, isMobile() and 12 or 8)
-        createStroke(sliderFrame, 1, Color3.fromRGB(45, 45, 55))
-        
-        local sliderLabel = Instance.new("TextLabel")
-        sliderLabel.Size = UDim2.new(0.7, 0, config.Description and 0.4 or 0.5, 0)
-        sliderLabel.Position = UDim2.new(0, 15, 0, 5)
-        sliderLabel.BackgroundTransparency = 1
-        sliderLabel.Text = config.Name
-        sliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        sliderLabel.TextSize = isMobile() and 16 or 14
-        sliderLabel.Font = Enum.Font.GothamBold
-        sliderLabel.TextXAlignment = Enum.TextXAlignment.Left
-        sliderLabel.Parent = sliderFrame
-        
-        local valueLabel = Instance.new("TextLabel")
-        valueLabel.Size = UDim2.new(0.3, -15, config.Description and 0.4 or 0.5, 0)
-        valueLabel.Position = UDim2.new(0.7, 0, 0, 5)
-        valueLabel.BackgroundTransparency = 1
-        valueLabel.Text = tostring(config.Default)
-        valueLabel.TextColor3 = Color3.fromRGB(100, 150, 255)
-        valueLabel.TextSize = isMobile() and 16 or 14
-        valueLabel.Font = Enum.Font.GothamBold
-        valueLabel.TextXAlignment = Enum.TextXAlignment.Right
-        valueLabel.Parent = sliderFrame
-        
-        -- Description
-        if config.Description then
-            local descLabel = Instance.new("TextLabel")
-            descLabel.Size = UDim2.new(1, -30, 0.3, 0)
-            descLabel.Position = UDim2.new(0, 15, 0.4, 0)
-            descLabel.BackgroundTransparency = 1
-            descLabel.Text = config.Description
-            descLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
-            descLabel.TextSize = isMobile() and 13 or 11
-            descLabel.Font = Enum.Font.Gotham
-            descLabel.TextXAlignment = Enum.TextXAlignment.Left
-            descLabel.Parent = sliderFrame
-        end
-        
-        -- Enhanced Slider Track
-        local sliderTrack = Instance.new("Frame")
-        sliderTrack.Size = UDim2.new(1, -30, 0, isMobile() and 8 or 6)
-        sliderTrack.Position = UDim2.new(0, 15, 1, -(isMobile() and 20 or 18))
-        sliderTrack.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-        sliderTrack.BorderSizePixel = 0
-        sliderTrack.Parent = sliderFrame
-        
-        createCorner(sliderTrack, isMobile() and 4 or 3)
-        
-        local sliderFill = Instance.new("Frame")
-        sliderFill.Size = UDim2.new(0, 0, 1, 0)
-        sliderFill.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
-        sliderFill.BorderSizePixel = 0
-        sliderFill.Parent = sliderTrack
-        
-        createCorner(sliderFill, isMobile() and 4 or 3)
-        
-        local sliderKnob = Instance.new("TextButton")
-        sliderKnob.Size = UDim2.new(0, isMobile() and 20 or 18, 0, isMobile() and 20 or 18)
-        sliderKnob.Position = UDim2.new(0, -(isMobile() and 10 or 9), 0.5, -(isMobile() and 10 or 9))
-        sliderKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        sliderKnob.BorderSizePixel = 0
-        sliderKnob.Text = ""
-        sliderKnob.Parent = sliderTrack
-        
-        createCorner(sliderKnob, isMobile() and 10 or 9)
-        createStroke(sliderKnob, 2, Color3.fromRGB(100, 150, 255))
-        
-        local currentValue = config.Default
-        local isDragging = false
-        
-        local function updateSlider()
-            local percentage = (currentValue - config.Min) / (config.Max - config.Min)
-            local fillSize = UDim2.new(percentage, 0, 1, 0)
-            local knobPos = UDim2.new(percentage, -(isMobile() and 10 or 9), 0.5, -(isMobile() and 10 or 9))
-            
-            TweenService:Create(sliderFill, fastTween, {Size = fillSize}):Play()
-            TweenService:Create(sliderKnob, fastTween, {Position = knobPos}):Play()
-            
-            valueLabel.Text = tostring(currentValue)
-        end
-        
-        local function onSliderInput(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                isDragging = true
-                
-                -- Visual feedback
-                TweenService:Create(sliderKnob, fastTween, {
-                    Size = UDim2.new(0, (isMobile() and 20 or 18) * 1.2, 0, (isMobile() and 20 or 18) * 1.2)
-                }):Play()
-                
-                local connection
-                connection = UserInputService.InputChanged:Connect(function(input2)
-                    if (input2.UserInputType == Enum.UserInputType.MouseMovement or input2.UserInputType == Enum.UserInputType.Touch) and isDragging then
-                        local mousePos = input2.Position.X
-                        local trackPos = sliderTrack.AbsolutePosition.X
-                        local trackSize = sliderTrack.AbsoluteSize.X
-                        local relativePos = math.clamp((mousePos - trackPos) / trackSize, 0, 1)
-                        
-                        local rawValue = config.Min + (config.Max - config.Min) * relativePos
-                        currentValue = math.floor(rawValue / config.Increment + 0.5) * config.Increment
-                        currentValue = math.clamp(currentValue, config.Min, config.Max)
-                        
-                        updateSlider()
-                        config.Callback(currentValue)
-                    end
-                end)
-                
-                local releaseConnection
-                releaseConnection = UserInputService.InputEnded:Connect(function(input2)
-                    if input2.UserInputType == Enum.UserInputType.MouseButton1 or input2.UserInputType == Enum.UserInputType.Touch then
-                        isDragging = false
-                        connection:Disconnect()
-                        releaseConnection:Disconnect()
-                        
-                        -- Reset visual feedback
-                        TweenService:Create(sliderKnob, fastTween, {
-                            Size = UDim2.new(0, isMobile() and 20 or 18, 0, isMobile() and 20 or 18)
-                        }):Play()
-                    end
-                end)
-            end
-        end
-        
-        sliderKnob.InputBegan:Connect(onSliderInput)
-        sliderTrack.InputBegan:Connect(onSliderInput)
-        
-        updateSlider()
-        self.ElementCount = self.ElementCount + 1
-        
-        return {
-            SetValue = function(value)
-                currentValue = math.clamp(value, config.Min, config.Max)
-                updateSlider()
-                config.Callback(currentValue)
-            end,
-            GetValue = function()
-                return currentValue
-            end
-        }
-    end
-    
-    -- Enhanced Button with better mobile support
-    function window:CreateButton(config)
-        config = config or {}
-        config.Name = config.Name or "Button"
-        config.Callback = config.Callback or function() end
-        config.Description = config.Description
-        config.Color = config.Color or Color3.fromRGB(100, 150, 255)
-        
-        local buttonFrame = Instance.new("TextButton")
-        buttonFrame.Name = "ButtonFrame"
-        buttonFrame.Size = UDim2.new(1, 0, 0, config.Description and (isMobile() and 60 or 50) or (isMobile() and 45 or 40))
-        buttonFrame.BackgroundColor3 = config.Color
-        buttonFrame.BorderSizePixel = 0
-        buttonFrame.LayoutOrder = self.ElementCount
-        buttonFrame.Text = ""
-        buttonFrame.Parent = self.ContentFrame
-        
-        createCorner(buttonFrame, isMobile() and 12 or 8)
-        createStroke(buttonFrame, 1, Color3.fromRGB(120, 170, 255))
-        
-        local buttonLabel = Instance.new("TextLabel")
-        buttonLabel.Size = UDim2.new(1, -20, config.Description and 0.6 or 1, 0)
-        buttonLabel.Position = UDim2.new(0, 10, 0, 0)
-        buttonLabel.BackgroundTransparency = 1
-        buttonLabel.Text = config.Name
-        buttonLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        buttonLabel.TextSize = isMobile() and 16 or 14
-        buttonLabel.Font = Enum.Font.GothamBold
-        buttonLabel.TextXAlignment = Enum.TextXAlignment.Center
-        buttonLabel.TextYAlignment = config.Description and Enum.TextYAlignment.Bottom or Enum.TextYAlignment.Center
-        buttonLabel.Parent = buttonFrame
-        
-        if config.Description then
-            local descLabel = Instance.new("TextLabel")
-            descLabel.Size = UDim2.new(1, -20, 0.4, 0)
-            descLabel.Position = UDim2.new(0, 10, 0.6, 0)
-            descLabel.BackgroundTransparency = 1
-            descLabel.Text = config.Description
-            descLabel.TextColor3 = Color3.fromRGB(220, 220, 230)
-            descLabel.TextSize = isMobile() and 13 or 11
-            descLabel.Font = Enum.Font.Gotham
-            descLabel.TextXAlignment = Enum.TextXAlignment.Center
-            descLabel.TextYAlignment = Enum.TextYAlignment.Top
-            descLabel.Parent = buttonFrame
-        end
-        
-        local hoverColor = Color3.new(
-            math.min(config.Color.R + 0.1, 1),
-            math.min(config.Color.G + 0.1, 1),
-            math.min(config.Color.B + 0.1, 1)
-        )
-        
-        local pressedColor = Color3.new(
-            math.max(config.Color.R - 0.1, 0),
-            math.max(config.Color.G - 0.1, 0),
-            math.max(config.Color.B - 0.1, 0)
-        )
-        
-        addHoverEffect(buttonFrame, config.Color, hoverColor, pressedColor)
-        addRippleEffect(buttonFrame)
-        
-        buttonFrame.MouseButton1Click:Connect(function()
-            config.Callback()
-        end)
-        
-        self.ElementCount = self.ElementCount + 1
-        
-        return {
-            SetText = function(text)
-                buttonLabel.Text = text
-            end,
-            SetColor = function(color)
-                config.Color = color
-                buttonFrame.BackgroundColor3 = color
-            end
-        }
-    end
-    
-    return window
 end
 
--- Export Library
-return Library
+-- Public Methods
+function UI:Close()
+    local fadeOut = TweenService:Create(self.mainFrame, TweenInfo.new(0.3), {
+        Position = self.mainFrame.Position + UDim2.new(0, 0, 0.05, 0),
+        Size = self.mainFrame.Size * 0.95,
+        BackgroundTransparency = 1
+    })
+    
+    fadeOut:Play()
+    fadeOut.Completed:Wait()
+    self.screenGui:Destroy()
+end
+
+function UI:Toggle()
+    local isMinimized = self.mainFrame.Size.Y.Offset <= 50
+    
+    if isMinimized then
+        TweenService:Create(self.mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, self.config.size[1], 0, self.config.size[2])
+        }):Play()
+    else
+        TweenService:Create(self.mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, self.config.size[1], 0, 40)
+        }):Play()
+    end
+end
+
+function UI:SetTheme(newTheme)
+    for key, value in pairs(newTheme) do
+        self.config.theme[key] = value
+    end
+    -- You could add theme update logic here
+end
+
+return ZynoxUI
